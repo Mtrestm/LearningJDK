@@ -2057,42 +2057,50 @@ public class HashMap<K, V> extends AbstractMap<K, V>
          */
         final void treeify(Node<K, V>[] tab) {
             TreeNode<K, V> root = null;
-            for (TreeNode<K, V> x = this, next; x != null; x = next) {
+            for (TreeNode<K, V> x = this, next; x != null; x = next) {//循环链表数组tab
                 next = (TreeNode<K, V>) x.next;
                 x.left = x.right = null;
-                if (root == null) {
+                if (root == null) {//先生成根节点
                     x.parent = null;
                     x.red = false;
                     root = x;
                 } else {
-                    K k = x.key;
-                    int h = x.hash;
+                    K k = x.key;//当前节点的 key
+                    int h = x.hash;//当前节点 hash 值
                     Class<?> kc = null;
-                    for (TreeNode<K, V> p = root; ; ) {
-                        int dir, ph;
-                        K pk = p.key;
-                        if ((ph = p.hash) > h)
+                    //第二层循环，从根节点开始寻找适合x插入的位置，并完成插入操作。
+                    //putTreeVal方法的实现跟这里十分相似。
+                    for (TreeNode<K, V> p = root; ; ) {//p遍历树时的当前遍历到的节点
+                        int dir, ph;//dir:记录接下来的方向,ph:当前遍历到的节点的hash 值
+                        K pk = p.key;//pk:当前遍历到的节点的 key
+                        if ((ph = p.hash) > h)//ph 大于目标节点 hash,则往p的左子树中继续寻找
                             dir = -1;
-                        else if (ph < h)
+                        else if (ph < h)//ph 小于目标节点 hash,则往p的右子树中继续寻找
                             dir = 1;
+                        //若两节点hash值相等，且key不可比(1.key 不可比有两种情况,key 没实现 comparable 接口2.两种 key 不是同一种类型)，则利用System.identityHashCode方法来决定一个方向
                         else if ((kc == null &&
                                 (kc = comparableClassFor(k)) == null) ||
                                 (dir = compareComparables(kc, k, pk)) == 0)
                             dir = tieBreakOrder(k, pk);
 
-                        TreeNode<K, V> xp = p;
+                        TreeNode<K,V> xp = p; //将当前节点p暂存为xp
+                        //根据上面算出的dir值将p向下移向其左子树或右子树，若为空，则说明找到了合适的插入位置，否则继续循环
                         if ((p = (dir <= 0) ? p.left : p.right) == null) {
-                            x.parent = xp;
-                            if (dir <= 0)
+                            //执行到这里说明找到了合适x的插入位置
+                            x.parent = xp;//将x的parent指针指向xp
+                            if (dir <= 0)//根据dir决定x是作为xp的左孩子还是右孩子
                                 xp.left = x;
                             else
                                 xp.right = x;
+                            //由于需要维持红黑树的平衡，即始终满足其5条性质，每一次插入新节点后都需要做平衡操作
                             root = balanceInsertion(root, x);
-                            break;
+                            break;//插入完成，跳出循环
                         }
                     }
                 }
             }
+            //由于插入后的平衡调整可能会更换整棵树的根节点，
+            //这里需要通过moveRootToFront方法确保table[index]中的节点与插入前相同
             moveRootToFront(tab, root);
         }
 
