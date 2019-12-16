@@ -673,11 +673,19 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                 //binCount最后的值是链表的长度
                 for (int binCount = 0; ; ++binCount) {
                     if ((e = p.next) == null) {
+                        //遍历到了链表最后一个元素,接下来执行链表的插入操作，先封装为Node再插入
+                        //p指向的是链表最后一个节点，将待插入的Node置为p.next，就完成了单链表的插入
                         p.next = newNode(hash, key, value, null);
                         if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
+                            //TREEIFY_THRESHOLD值是8， binCount>=7,然后又插入了一个新节点，
+                            //链表长度>=8，这时要么进行扩容操作，要么把链表结构转为红黑树结构
+                            //我们接下会分析treeifyBin的源码实现
                             treeifyBin(tab, hash);
                         break;
                     }
+                    //当p不是指向链表末尾的时候：先判断p.key是否等于key，等于的话表示当前key
+                    //已经存在了，令e指向p，停止遍历，最后会更新e的value；
+                    //key不等的话准备下次遍历，令p=p.next，即p=e
                     if (e.hash == hash &&
                             ((k = e.key) == key || (key != null && key.equals(k))))
                         break;
@@ -686,15 +694,24 @@ public class HashMap<K, V> extends AbstractMap<K, V>
             }
             if (e != null) { // existing mapping for key
                 V oldValue = e.value;
+                //onlyIfAbsent默是false，evict为true
+                //onlyIfAbsent为true表示如果之前已经存在key这个键值对了，那么后面在put这个key
+                //时，忽略这个操作，不更新先前的value，这里连接就好
                 if (!onlyIfAbsent || oldValue == null)
                     e.value = value;
+                //这个函数的默认实现是“空”，即这个函数默认什么操作都不执行，那为什么要有它呢？
+                //这是个hook/钩子函数，主要要在LinkedHashMap中，LinkedHashMap重写了这个函数
                 afterNodeAccess(e);
-                return oldValue;
+                return oldValue;//返回旧的value
             }
         }
-        ++modCount;
+        //如果是第一次插入key这个键，就会执行到这里
+        ++modCount;//failFast机制
+        //size保存的是当前HashMap中保存了多少个键值对，HashMap的size方法就是直接返回size之前说过，threshold保存的是当前table数组长度*loadfactor，如果table数组中存储的Node数量大于threshold，这时候会进行扩容，即将table数组的容量翻倍。
         if (++size > threshold)
+            //resize方法
             resize();
+        //这也是一个hook函数，作用和afterNodeAccess一样
         afterNodeInsertion(evict);
         return null;
     }
