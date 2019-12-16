@@ -1953,7 +1953,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
         TreeNode<K, V> left;
         TreeNode<K, V> right;
         TreeNode<K, V> prev;    // needed to unlink next upon deletion
-        boolean red;
+        boolean red;/* 是否是红节点 true表示红节点(与父亲节点的链接为红色链接) false表示黑节点(与父亲节点的链接为黑色链接) */
 
         TreeNode(int hash, K key, V val, Node<K, V> next) {
             super(hash, key, val, next);
@@ -2361,16 +2361,23 @@ public class HashMap<K, V> extends AbstractMap<K, V>
 
         static <K, V> TreeNode<K, V> rotateLeft(TreeNode<K, V> root,
                                                 TreeNode<K, V> p) {
+            // r：right，右节点。
+            // pp：parent parent，父节点的父节点。
+            // rl：right left，右节点的左节点。
             TreeNode<K, V> r, pp, rl;
             if (p != null && (r = p.right) != null) {
+                // 第一步
                 if ((rl = p.right = r.left) != null)
                     rl.parent = p;
+                // 第二步
                 if ((pp = r.parent = p.parent) == null)
                     (root = r).red = false;
+                // 第三部
                 else if (pp.left == p)
                     pp.left = r;
                 else
                     pp.right = r;
+                // 第四步
                 r.left = p;
                 p.parent = r;
             }
@@ -2397,10 +2404,11 @@ public class HashMap<K, V> extends AbstractMap<K, V>
 
         static <K, V> TreeNode<K, V> balanceInsertion(TreeNode<K, V> root,
                                                       TreeNode<K, V> x) {
-            x.red = true;
+            x.red = true;//新加入的结点的父链接都是红色
+            //一个没有边界的循环(需要内部跳出)
             for (TreeNode<K, V> xp, xpp, xppl, xppr; ; ) {
-                if ((xp = x.parent) == null) {
-                    x.red = false;
+                if ((xp = x.parent) == null) {//当前节点就是根节点,直接返回
+                    x.red = false;//变色(黑色)
                     return x;
                 } else if (!xp.red || (xpp = xp.parent) == null)
                     return root;
