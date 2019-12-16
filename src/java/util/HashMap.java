@@ -679,7 +679,6 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                         if (binCount >= TREEIFY_THRESHOLD - 1) // -1 for 1st
                             //TREEIFY_THRESHOLD值是8， binCount>=7,然后又插入了一个新节点，
                             //链表长度>=8，这时要么进行扩容操作，要么把链表结构转为红黑树结构
-                            //我们接下会分析treeifyBin的源码实现
                             treeifyBin(tab, hash);
                         break;
                     }
@@ -829,24 +828,29 @@ public class HashMap<K, V> extends AbstractMap<K, V>
      * Replaces all linked nodes in bin at index for given hash unless
      * table is too small, in which case resizes instead.
      */
+    //MIN_TREEIFY_CAPACITY值是64,也就是当链表长度>8的时候，有两种情况：
+    //如果table数组的长度<64,此时进行扩容操作(扩容之后，链表会分化成两个链表，达到减少元素的作用,当然也不一定，比如容量为4，里面存的全是除以4余数等于3的元素,这样即使扩容也无法减少链表的长度)
+    //如果table数组的长度>64，此时进行链表转红黑树结构的操作
     final void treeifyBin(Node<K, V>[] tab, int hash) {
         int n, index;
         Node<K, V> e;
         if (tab == null || (n = tab.length) < MIN_TREEIFY_CAPACITY)
             resize();
-        else if ((e = tab[index = (n - 1) & hash]) != null) {
-            TreeNode<K, V> hd = null, tl = null;
+        else if ((e = tab[index = (n - 1) & hash]) != null) {//定位到hash对应的桶位，头结点记为e
+            TreeNode<K, V> hd = null, tl = null;//声明两个指针分别指向链表头尾节点
+            // 把所有链表节点换成树节点
             do {
-                TreeNode<K, V> p = replacementTreeNode(e, null);
-                if (tl == null)
+                TreeNode<K, V> p = replacementTreeNode(e, null);//将Node类型的节点e替换为TreeNode类型的p
+                if (tl == null)//第一次进来,将当前节点p赋值给头节点(即,若当前链表为空，则赋值头指针为p)
                     hd = p;
                 else {
-                    p.prev = tl;
-                    tl.next = p;
+                    p.prev = tl;//当前节点的 prev节点是上一个尾节点 tl(即,否则将p添加到链表尾部)
+                    tl.next = p;//上一个尾节点tl的next结点赋值为当前节点
                 }
-                tl = p;
-            } while ((e = e.next) != null);
-            if ((tab[index] = hd) != null)
+                tl = p;//新的尾部节点赋值为当前节点(后移尾指针)
+            } while ((e = e.next) != null); //循环继续
+            if ((tab[index] = hd) != null)//将链表头节点放入table的index位置(key在链表数组tab中的索引)
+                //开始树化
                 hd.treeify(tab);
         }
     }
