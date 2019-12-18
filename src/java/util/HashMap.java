@@ -2369,7 +2369,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                 // 第一步()
                 if ((rl = p.right = r.left) != null)
                     rl.parent = p;
-                //二三四步都是r如何取代 p 的地位(分为三种情况)
+                //二三四步都是r和p 的位置如何互换(分为三种情况)
                 // 第二步(不存在 pp,将r 作为根节点的情况)
                 if ((pp = r.parent = p.parent) == null)
                     (root = r).red = false;
