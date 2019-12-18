@@ -2373,7 +2373,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                 // 第二步(不存在 pp,将r 作为根节点的情况)
                 if ((pp = r.parent = p.parent) == null)
                     (root = r).red = false;
-                // 第三部(将 r挂到 pp 的左边还是右边)
+                // 第三部(将 r交换到原来 p 的位置,并决定挂到 pp 的左边还是右边)
                 else if (pp.left == p)
                     pp.left = r;
                 else
