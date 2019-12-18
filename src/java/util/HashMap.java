@@ -2366,11 +2366,11 @@ public class HashMap<K, V> extends AbstractMap<K, V>
             // rl：right left，右节点的左节点。
             TreeNode<K, V> r, pp, rl;
             if (p != null && (r = p.right) != null) {
-                // 第一步()
+                // 第一步(rl和r交换,将 rl挂到 p 下面)
                 if ((rl = p.right = r.left) != null)
                     rl.parent = p;
                 //二三四步都是r和p 的位置如何互换(分为三种情况)
-                // 第二步(不存在 pp,将r 作为根节点的情况)
+
                 if ((pp = r.parent = p.parent) == null)
                     (root = r).red = false;
                 // 第三部(将 r交换到原来 p 的位置,并决定挂到 pp 的左边还是右边)
@@ -2387,16 +2387,25 @@ public class HashMap<K, V> extends AbstractMap<K, V>
 
         static <K, V> TreeNode<K, V> rotateRight(TreeNode<K, V> root,
                                                  TreeNode<K, V> p) {
+            // l：left，左子节点。
+            // pp：parent parent，父节点的父节点。
+            // lr：left right，左子节点的右子节点。
+            //当前节点和它的左子节点不为空
             TreeNode<K, V> l, pp, lr;
             if (p != null && (l = p.left) != null) {
+                //第一步:将 lr和 l 交换挂到 p 下面
                 if ((lr = p.left = l.right) != null)
                     lr.parent = p;
+                //二三四步都是l和p 的位置如何互换(分为三种情况)
+                // 第二步(不存在 pp,将l 作为根节点的情况)
                 if ((pp = l.parent = p.parent) == null)
                     (root = l).red = false;
+                // 第三部(将 l交换到原来 p 的位置,并决定挂到 pp 的左边还是右边)
                 else if (pp.right == p)
                     pp.right = l;
                 else
                     pp.left = l;
+                // 第四步(将 p 交换到l的以前的位置)
                 l.right = p;
                 p.parent = l;
             }
