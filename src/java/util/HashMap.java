@@ -2361,23 +2361,24 @@ public class HashMap<K, V> extends AbstractMap<K, V>
 
         static <K, V> TreeNode<K, V> rotateLeft(TreeNode<K, V> root,
                                                 TreeNode<K, V> p) {
-            // r：right，右节点。
+            // r：right，右子节点。
             // pp：parent parent，父节点的父节点。
             // rl：right left，右节点的左节点。
             TreeNode<K, V> r, pp, rl;
             if (p != null && (r = p.right) != null) {
-                // 第一步
+                // 第一步()
                 if ((rl = p.right = r.left) != null)
                     rl.parent = p;
-                // 第二步
+                //二三四步都是r如何取代 p 的地位(分为三种情况)
+                // 第二步(不存在 pp,将r 作为根节点的情况)
                 if ((pp = r.parent = p.parent) == null)
                     (root = r).red = false;
-                // 第三部
+                // 第三部(将 r挂到 pp 的左边还是右边)
                 else if (pp.left == p)
                     pp.left = r;
                 else
                     pp.right = r;
-                // 第四步
+                // 第四步(将 p 交换到r的以前的位置)
                 r.left = p;
                 p.parent = r;
             }
