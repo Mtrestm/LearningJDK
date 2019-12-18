@@ -2077,13 +2077,13 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                             dir = -1;
                         else if (ph < h)//ph 小于目标节点 hash,则往p的右子树中继续寻找
                             dir = 1;
-                        //若两节点hash值相等，且key不可比(1.key 不可比有两种情况,key 没实现 comparable 接口2.两种 key 不是同一种类型)，则利用System.identityHashCode方法来决定一个方向
+                            //若两节点hash值相等，且key不可比(1.key 不可比有两种情况,key 没实现 comparable 接口2.两种 key 不是同一种类型)，则利用System.identityHashCode方法来决定一个方向
                         else if ((kc == null &&
                                 (kc = comparableClassFor(k)) == null) ||
                                 (dir = compareComparables(kc, k, pk)) == 0)
                             dir = tieBreakOrder(k, pk);
 
-                        TreeNode<K,V> xp = p; //将当前节点p暂存为xp
+                        TreeNode<K, V> xp = p; //将当前节点p暂存为xp
                         //根据上面算出的dir值将p向下移向其左子树或右子树，若为空，则说明找到了合适的插入位置，否则继续循环
                         if ((p = (dir <= 0) ? p.left : p.right) == null) {
                             //执行到这里说明找到了合适x的插入位置
@@ -2143,8 +2143,8 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                 else if (ph < h)// 当前节点hash比目标hash小，说明在右边
                     dir = 1;
                 else if ((pk = p.key) == k || (k != null && k.equals(pk)))
-                // A.两者hash相同且key相等，说明找到了节点，直接返回该节点
-                // 回到putVal()中判断是否需要修改其value值
+                    // A.两者hash相同且key相等，说明找到了节点，直接返回该节点
+                    // 回到putVal()中判断是否需要修改其value值
                     return p;
                 else if ((kc == null &&
                         // 如果k是Comparable的子类则返回其真实的类，否则返回null(key 是否实现Comparable接口)
@@ -2373,7 +2373,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
 
                 if ((pp = r.parent = p.parent) == null)
                     (root = r).red = false;
-                // 第三部(将 r交换到原来 p 的位置,并决定挂到 pp 的左边还是右边)
+                    // 第三部(将 r交换到原来 p 的位置,并决定挂到 pp 的左边还是右边)
                 else if (pp.left == p)
                     pp.left = r;
                 else
@@ -2400,7 +2400,7 @@ public class HashMap<K, V> extends AbstractMap<K, V>
                 // 第二步(不存在 pp,将l 作为根节点的情况)
                 if ((pp = l.parent = p.parent) == null)
                     (root = l).red = false;
-                // 第三部(将 l交换到原来 p 的位置,并决定挂到 pp 的左边还是右边)
+                    // 第三部(将 l交换到原来 p 的位置,并决定挂到 pp 的左边还是右边)
                 else if (pp.right == p)
                     pp.right = l;
                 else
@@ -2414,48 +2414,77 @@ public class HashMap<K, V> extends AbstractMap<K, V>
 
         static <K, V> TreeNode<K, V> balanceInsertion(TreeNode<K, V> root,
                                                       TreeNode<K, V> x) {
-            x.red = true;//新加入的结点的父链接都是红色
+            x.red = true;//所有新插入的结点的父链接都是红色
             //一个没有边界的循环(需要内部跳出)
+            // xp：x parent，代表x的父节点。
+            // xpp：x parent parent，代表x的祖父节点
+            // xppl：x parent parent left，代表x的祖父的左节点。
+            // xppr：x parent parent right，代表x的祖父的右节点。
             for (TreeNode<K, V> xp, xpp, xppl, xppr; ; ) {
-                if ((xp = x.parent) == null) {//当前节点就是根节点,直接返回
+                //取出x的父节点并判断是否为null
+                // 如果父节点为NULL说明只有一个节点，说明它就是根节点（第一个节点）直接将X节点染黑就行
+                if ((xp = x.parent) == null) {//当前节点x就是根节点,直接返回
                     x.red = false;//变色(黑色)
                     return x;
+                    //x 不是根节点,如果x存在父节点且x的父节点为黑色或x的父父节点不存在(说明已经平衡了,直接返回根节点)
+                    // 如果父节点是黑色，那么红色节点可以直接加在后面，这样对树结构不会有影响，直接返回
+                    // 祖父节点为NULL表式父节点为根节点，根节点必须是黑色可以直接添加红色节点
                 } else if (!xp.red || (xpp = xp.parent) == null)
                     return root;
+
+                /**到了这里说明X的父节点是红色并且它是有祖父节点的*/
+                // 父节点是祖父节点的左叶子结点
                 if (xp == (xppl = xpp.left)) {
+                    // 父节点的右边兄弟是红色，将父节点和父节点的兄弟节点染黑，将祖父节点染红。这个其实是上面的旋转3
                     if ((xppr = xpp.right) != null && xppr.red) {
                         xppr.red = false;
                         xp.red = false;
                         xpp.red = true;
                         x = xpp;
                     } else {
+                        // 父节点的兄弟节点为null或者为黑色，这个其实是上面的旋转2，先左旋再右旋
+                        // X是否是右子节点，此时结构是xpp左->xp右->x，这种,先左旋再右旋
                         if (x == xp.right) {
+                            // 左旋转
                             root = rotateLeft(root, x = xp);
                             xpp = (xp = x.parent) == null ? null : xp.parent;
                         }
+                        // 针对本身就是xpp左->xp左->x的结构或者由于上面的旋转造成的这种结构进行一次旋转。这个其实是上面的旋转1
                         if (xp != null) {
                             xp.red = false;
                             if (xpp != null) {
                                 xpp.red = true;
+                                // 右旋转
                                 root = rotateRight(root, xpp);
                             }
                         }
                     }
-                } else {
+                }
+                // 父节点是祖父节点的右叶子结点
+                else {
+                    // 父节点的左边兄弟是红色(两红父变黑)
                     if (xppl != null && xppl.red) {
                         xppl.red = false;
                         xp.red = false;
                         xpp.red = true;
                         x = xpp;
                     } else {
+                        // 父节点的兄弟节点为null或者为黑色，先左旋再右旋
+                        // X是否是左子节点，此时结构是xpp右->xp左->x，这种,先右旋再左旋
+                        //如果x是父节点的左孩子
                         if (x == xp.left) {
+                            //右旋
                             root = rotateRight(root, x = xp);
+                            //处理x的父父节点
                             xpp = (xp = x.parent) == null ? null : xp.parent;
                         }
+                        //如果x的父节点存在
+                        //针对本身就是xpp右->xp左->x或者由于上面的旋转造成的这种结构进行一次旋转
                         if (xp != null) {
                             xp.red = false;
                             if (xpp != null) {
                                 xpp.red = true;
+                                //左旋
                                 root = rotateLeft(root, xpp);
                             }
                         }
