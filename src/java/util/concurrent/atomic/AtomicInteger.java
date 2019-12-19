@@ -34,9 +34,10 @@
  */
 
 package java.util.concurrent.atomic;
-import java.util.function.IntUnaryOperator;
-import java.util.function.IntBinaryOperator;
 import sun.misc.Unsafe;
+
+import java.util.function.IntBinaryOperator;
+import java.util.function.IntUnaryOperator;
 
 /**
  * An {@code int} value that may be updated atomically.  See the
@@ -56,10 +57,12 @@ public class AtomicInteger extends Number implements java.io.Serializable {
 
     // setup to use Unsafe.compareAndSwapInt for updates
     private static final Unsafe unsafe = Unsafe.getUnsafe();
+    //静态字段valueOffset即为字段value的内存偏移地址
     private static final long valueOffset;
 
     static {
         try {
+            //valueOffset的值在AtomicInteger初始化时，在静态代码块中通过Unsafe的objectFieldOffset方法获取
             valueOffset = unsafe.objectFieldOffset
                 (AtomicInteger.class.getDeclaredField("value"));
         } catch (Exception ex) { throw new Error(ex); }
@@ -129,6 +132,7 @@ public class AtomicInteger extends Number implements java.io.Serializable {
      * @return {@code true} if successful. False return indicates that
      * the actual value was not equal to the expected value.
      */
+    //在AtomicInteger中提供的线程安全方法中，通过字段valueOffset的值可以定位到AtomicInteger对象中value的内存地址，从而可以根据CAS实现对value字段的原子操作。
     public final boolean compareAndSet(int expect, int update) {
         return unsafe.compareAndSwapInt(this, valueOffset, expect, update);
     }
