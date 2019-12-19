@@ -27,11 +27,12 @@
 
 package java.nio;
 
-import java.io.FileDescriptor;
 import sun.misc.Cleaner;
 import sun.misc.Unsafe;
 import sun.misc.VM;
 import sun.nio.ch.DirectBuffer;
+
+import java.io.FileDescriptor;
 
 
 class DirectByteBuffer
@@ -124,11 +125,13 @@ class DirectByteBuffer
 
         long base = 0;
         try {
+            //分配内存,并返回其基地址
             base = unsafe.allocateMemory(size);
         } catch (OutOfMemoryError x) {
             Bits.unreserveMemory(size, cap);
             throw x;
         }
+        //内存初始化
         unsafe.setMemory(base, size, (byte) 0);
         if (pa && (base % ps != 0)) {
             // Round up to page boundary
@@ -136,6 +139,7 @@ class DirectByteBuffer
         } else {
             address = base;
         }
+        //跟踪 DirectByteBuffer对象的垃圾回收,以实现堆外内存释放
         cleaner = Cleaner.create(this, new Deallocator(base, size, cap));
         att = null;
 
