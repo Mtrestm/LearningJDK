@@ -199,7 +199,7 @@ abstract class Striped64 extends Number {
     }
 
     /**
-     * 返回当前线程的标志
+     * 返回当前线程的标识
      * 由于包限制，这段代码是从ThreadLocalRandom拷贝过来的
      * Returns the probe value for the current thread.
      * Duplicated from ThreadLocalRandom because of packaging restrictions.
@@ -243,7 +243,7 @@ abstract class Striped64 extends Number {
         //2.或者是在执行add方法时，对cells某个位置的Cell的cas操作第一次失败，则将wasUncontended设置为false，那么这里会将其重新置为true；第一次执行操作失败；
         //凡是参与了cell争用操作的线程threadLocalRandomProbe都不为0；
         int h;
-        if ((h = getProbe()) == 0) {//未竞争
+        if ((h = getProbe()) == 0) {//当前线程未参与过 cell竞争,开始参与cell 竞争
             //初始化ThreadLocalRandom;
             ThreadLocalRandom.current(); // force initialization
             //将h设置为0x9e3779b9
@@ -300,9 +300,10 @@ abstract class Striped64 extends Number {
                 /**
                  *内部小分支二：如果add方法中条件4的通过cas设置cells[m%cells.length]位置的Cell对象中的value值设置为v+x失败,说明已经发生竞争，将wasUncontended设置为true，跳出内部的if判断，最后重新计算一个新的probe，然后重新执行循环;
                  */
-                //运行到此说明cell的对应位置上已经有想相应的Cell了，不需要初始化了
+                //运行到此说明cell的对应位置上已经有想相应的Cell了，不需要初始化了(说明上面通过h选定的cell表的位置上有Cell，就是a。)
                 else if (!wasUncontended)       // CAS already known to fail
-                    //设置未竞争标志位true，继续执行，后面会算一个新的probe值，然后重新执行循环。
+                    //如果之前的CAS失败，说明已经发生竞争，
+                    //这里会设置未竞争标志位true，然后再次算一个probe值，然后重试。
                     wasUncontended = true;      // Continue after rehash
                 /**
                  * // 如果定位到的Cell!=null，尝试通过cas的方式更新这个cell维护的value。
@@ -313,17 +314,20 @@ abstract class Striped64 extends Number {
                                              fn.applyAsLong(v, x))))
                     break;
                 //cell数组最大为cpu的数量，或者是当前cells已经做了扩容(cells != as表明cells数组已经被更新了)
+                    //cells的长度n已经大于CPU数量，则继续扩容没有意义，因此直接标记为不冲突
                 else if (n >= NCPU || cells != as)
+                    //如果cell表的size已经最大，或者cell表已经发生变化(as是一个过时的)。
                     collide = false;            // At max size or stale
                 /**
                  *内部小分支五：如果发生了冲突collide=false，则设置其为true；会在最后重新计算hash值后，进入下一次for循环
                  */
                 else if (!collide)
-                    //设置冲突标志，表示发生了冲突，需要再次生成hash，重试。 如果下次重试任然走到了改分支此时collide=true，!collide条件不成立，则走后一个分支
+                    //设置冲突标志，表示发生了冲突(因为前面的条件都没成功)，需要再次生成hash，重试。 如果下次重试任然走到了改分支此时collide=true，!collide条件不成立，则走后一个分支
                     collide = true;
                 /**
                  *内部小分支六：扩容cells数组，新参与cell争用的线程两次均失败，且符合库容条件，会执行该分支
                  */
+                //到这一步则说明a不为空但是a上进行CAS操作也有多个线程在竞争，因此需要扩容cells数组，其长度为原长度的2倍
                 else if (cellsBusy == 0 && casCellsBusy()) {
                     try {
                         //检查cells是否已经被扩容
@@ -339,10 +343,11 @@ abstract class Striped64 extends Number {
                     collide = false;
                     continue;                   // Retry with expanded table
                 }
-                //为当前线程重新计算hash值
+                //为当前线程重新计算hash值(继续使用新的随机数，避免在同一个Cell上竞争)
                 h = advanceProbe(h);
             }
                 //这个大的分支处理add方法中的条件1与条件2成立的情况，如果cell表还未初始化或者长度为0，先尝试获取cellsBusy锁。
+            //如果cells为空，则需要先创建Cell数组。初始长度为2.(个人理解这个if放在前面会比较好一点，哈哈)
             else if (cellsBusy == 0 && cells == as && casCellsBusy()) {
                 boolean init = false;
                 try {                           // Initialize table
@@ -364,6 +369,7 @@ abstract class Striped64 extends Number {
             /**
              *如果以上操作都失败了，则尝试将值累加到base上；
              */
+            //如果在a上竞争失败，且扩容竞争也失败了，则在casBase上尝试增加数量
             else if (casBase(v = base, ((fn == null) ? v + x :
                                         fn.applyAsLong(v, x))))
                 break;                          // Fall back on using base
