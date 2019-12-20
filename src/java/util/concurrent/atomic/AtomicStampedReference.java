@@ -141,7 +141,7 @@ public class AtomicStampedReference<V> {
      * @param expectedReference the expected value of the reference
      * @param newReference the new value for the reference
      * @param expectedStamp the expected value of the stamp
-     * @param newStamp the new value for the stamp
+     * @param newStamp the new value for the stamp(版本号/时间戳)
      * @return {@code true} if successful
      */
     public boolean compareAndSet(V   expectedReference,
@@ -154,7 +154,7 @@ public class AtomicStampedReference<V> {
             expectedStamp == current.stamp &&
             ((newReference == current.reference &&
               newStamp == current.stamp) ||
-             casPair(current, Pair.of(newReference, newStamp)));
+             casPair(current, Pair.of(newReference, newStamp)));//casPair通过UNSAFE原子的修改两个Pair变量
     }
 
     /**
