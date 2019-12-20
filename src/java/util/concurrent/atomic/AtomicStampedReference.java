@@ -49,13 +49,15 @@ package java.util.concurrent.atomic;
  */
 public class AtomicStampedReference<V> {
 
+    // Pair对象维护对象的引用和对象标志的版本，通过Pair对象解决“ABA”问题
     private static class Pair<T> {
-        final T reference;
-        final int stamp;
+        final T reference;//对象的引用
+        final int stamp;//对象标志的版本
         private Pair(T reference, int stamp) {
             this.reference = reference;
             this.stamp = stamp;
         }
+        //参数由构造函数传入,Pair对象通过执行构造函数时实例化
         static <T> Pair<T> of(T reference, int stamp) {
             return new Pair<T>(reference, stamp);
         }
@@ -161,6 +163,7 @@ public class AtomicStampedReference<V> {
      * @param newReference the new value for the reference
      * @param newStamp the new value for the stamp
      */
+    //AtomicStampedReference在设置它的引用时，必须同时设置版本号。
     public void set(V newReference, int newStamp) {
         Pair<V> current = pair;
         if (newReference != current.reference || newStamp != current.stamp)
