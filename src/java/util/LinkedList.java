@@ -585,15 +585,17 @@ public class LinkedList<E>
     /**
      * Returns the (non-null) Node at the specified element index.
      */
+    // 获取指定位置的节点
     Node<E> node(int index) {
         // assert isElementIndex(index);
-
+        // 采用二分法来遍历，如果该位置小于长度的一半，则从头开始遍历
         if (index < (size >> 1)) {
             Node<E> x = first;
             for (int i = 0; i < index; i++)
                 x = x.next;
             return x;
         } else {
+            // 如果位置大于长度的一半，从最后开始遍历
             Node<E> x = last;
             for (int i = size - 1; i > index; i--)
                 x = x.prev;
