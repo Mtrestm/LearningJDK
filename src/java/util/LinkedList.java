@@ -183,15 +183,22 @@ public class LinkedList<E>
     /**
      * Unlinks non-null first node f.
      */
+    //删除头节点
     private E unlinkFirst(Node<E> f) {
         // assert f == first && f != null;
+        // 获取头节点的数据
         final E element = f.item;
+        // 获取头结点的下一个节点
         final Node<E> next = f.next;
+        // 将头节点保存的数据清空
         f.item = null;
+        //将头节点的next节点指向null
         f.next = null; // help GC
         first = next;
+        // 如果头节点的 next 的节点本来指向 null，即原本链表中就这一个节点，移除后链表中就没有节点了
         if (next == null)
             last = null;
+        // 如果头节点后面还有节点，那么删除的prev节点就指向 null
         else
             next.prev = null;
         size--;
