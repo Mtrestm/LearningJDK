@@ -306,7 +306,7 @@ abstract class Striped64 extends Number {
                 else if (!wasUncontended)       // CAS already known to fail
                     //如果之前的CAS失败，说明已经发生竞争，
                     //这里会设置未竞争标志位true，然后再次算一个probe值，然后重试。
-                    wasUncontended = true;      // Continue after rehash
+                    wasUncontended = true;      // Continue after rehash (因为接下来要重新计算 probe,wasUncontended = true表示接下来重新生成标志的该线程还未参与争用)
                 /**
                  * // 如果定位到的Cell!=null，尝试通过cas的方式更新这个cell维护的value。
                  * // 如果更新成功，退出循环
