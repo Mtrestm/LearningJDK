@@ -205,6 +205,8 @@ abstract class Striped64 extends Number {
      * Duplicated from ThreadLocalRandom because of packaging restrictions.
      */
     static final int getProbe() {
+        //PROBE是threadLocalRandomProbe变量在Thread类里面的偏移量，
+        // 所以下面语句获取的就是threadLocalRandomProbe的值；
         return UNSAFE.getInt(Thread.currentThread(), PROBE);
     }
 
@@ -294,7 +296,7 @@ abstract class Striped64 extends Number {
                             continue;           // Slot is now non-empty
                         }
                     }
-                    //如果执行的当前行，代表cellsBusy=1，有线程正在更改cells数组，代表产生了冲突，将collide设置为false
+                    //如果执行的当前行，代表cellsBusy=1，有线程正在更改cells数组，代表产生了冲突，但是有所不怕,将collide设置为false
                     collide = false;
                 }
                 /**
