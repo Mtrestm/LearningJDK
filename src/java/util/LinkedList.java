@@ -160,13 +160,20 @@ public class LinkedList<E>
     /**
      * Inserts element e before non-null Node succ.
      */
+    // 在指定节点前面插入值，这里假设指定节点不为空
     void linkBefore(E e, Node<E> succ) {
         // assert succ != null;
+        // 获取指定节点的前一个节点
         final Node<E> pred = succ.prev;
+        // 创建一共新节点，向前指向 succ 节点的前一个节点，向后指向 succ 节点，数值是 e
         final Node<E> newNode = new Node<>(pred, e, succ);
+        // succ 向前指向新建的节点
         succ.prev = newNode;
+        // 如果 succ 前面的节点为空，则新建的节点就是头节点
         if (pred == null)
             first = newNode;
+            // 如果 succ 前面的节点不为空，则用 succ 节点向后指向新建的节点
+            // 此时代表插入完成
         else
             pred.next = newNode;
         size++;
