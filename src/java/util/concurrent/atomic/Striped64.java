@@ -315,7 +315,7 @@ abstract class Striped64 extends Number {
                 else if (a.cas(v = a.value, ((fn == null) ? v + x :
                                              fn.applyAsLong(v, x))))
                     break;
-                //cell数组最大为cpu的数量，或者是当前cells已经做了扩容(cells != as表明cells数组已经被更新了)
+                //内部小分支四:cell数组最大为cpu的数量，或者是当前cells已经做了扩容(cells != as表明cells数组已经被更新了)
                     //cells的长度n已经大于CPU数量，则继续扩容没有意义，因此直接标记为不冲突
                 else if (n >= NCPU || cells != as)
                     //如果cell表的size已经最大，或者cell表已经发生变化(as是一个过时的)。
@@ -327,7 +327,7 @@ abstract class Striped64 extends Number {
                     //设置冲突标志，表示发生了冲突(因为前面的条件都没成功)，需要再次生成hash，重试。 如果下次重试任然走到了改分支此时collide=true，!collide条件不成立，则走后一个分支
                     collide = true;
                 /**
-                 *内部小分支六：扩容cells数组，新参与cell争用的线程两次均失败，且符合库容条件，会执行该分支
+                 *内部小分支六：扩容cells数组，新参与cell争用的线程两次均失败，且符合扩容条件，会执行该分支
                  */
                 //到这一步则说明a不为空但是a上进行CAS操作也有多个线程在竞争，因此需要扩容cells数组，其长度为原长度的2倍
                 else if (cellsBusy == 0 && casCellsBusy()) {
