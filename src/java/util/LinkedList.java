@@ -114,6 +114,7 @@ public class LinkedList<E>
      * @param  c the collection whose elements are to be placed into this list
      * @throws NullPointerException if the specified collection is null
      */
+//    构造一个包含指定 collection 中的元素的列表，这些元素按其 collection 的迭代器返回的顺序排列
     public LinkedList(Collection<? extends E> c) {
         this();
         addAll(c);
@@ -122,12 +123,19 @@ public class LinkedList<E>
     /**
      * Links e as first element.
      */
+    // 把数据插入到链表头部
     private void linkFirst(E e) {
+        //将头节点保存到节点 f 中
         final Node<E> f = first;
+        //新建节点,next 指向 f,prev 指向 null,保存元素 e
         final Node<E> newNode = new Node<>(null, e, f);
+        //将新建节点保存到头节点中
         first = newNode;
+        // 如果 f 为空(添加之前什么也没有)，则链表的尾节点也指向新建节点
         if (f == null)
+        // 此时链表的头节点和尾节点都指向这个新创建的节点
             last = newNode;
+        // 如果 f 不为空(添加之前头节点已经有了)，原来的头节点向前指向新的节点
         else
             f.prev = newNode;
         size++;
@@ -968,9 +976,9 @@ public class LinkedList<E>
     }
 
     private static class Node<E> {
-        E item;
-        Node<E> next;
-        Node<E> prev;
+        E item;//当前节点存储的元素
+        Node<E> next;//下一个节点
+        Node<E> prev;//上一个节点
 
         Node(Node<E> prev, E element, Node<E> next) {
             this.item = element;
