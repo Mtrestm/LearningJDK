@@ -254,7 +254,7 @@ abstract class Striped64 extends Number {
             wasUncontended = true;
         }
         //cas冲突标志，表示当前线程hash到的Cells数组的位置，做cas累加操作时与其它线程发生了冲突，cas失败；
-        // collide=true代表有冲突，collide=false代表无冲突
+        // collide=true代表有冲突(有碰撞)，collide=false代表无冲突(无碰撞)
         boolean collide = false;                // True if last slot nonempty
         for (;;) {
             //这个主干if有三个分支
@@ -302,7 +302,7 @@ abstract class Striped64 extends Number {
                 /**
                  *内部小分支二：如果add方法中条件4的通过cas设置cells[m%cells.length]位置的Cell对象中的value值设置为v+x失败,说明已经发生竞争，将wasUncontended设置为true，跳出内部的if判断，最后重新计算一个新的probe，然后重新执行循环;
                  */
-                //运行到此说明cell的对应位置上已经有想相应的Cell了，不需要初始化了(说明上面通过h选定的cell表的位置上有Cell，就是a。)
+                //运行到此说明cell的对应位置上已经有相应的Cell了，不需要初始化了(说明上面通过h选定的cell表的位置上有Cell，就是a。)
                 else if (!wasUncontended)       // CAS already known to fail
                     //如果之前的CAS失败，说明已经发生竞争，
                     //这里会设置未竞争标志位true，然后再次算一个probe值，然后重试。
