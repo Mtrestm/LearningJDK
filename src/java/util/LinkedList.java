@@ -616,15 +616,18 @@ public class LinkedList<E>
      * @return the index of the first occurrence of the specified element in
      *         this list, or -1 if this list does not contain the element
      */
+    ////返回链表中第一个匹配传入元素的索引
     public int indexOf(Object o) {
         int index = 0;
         if (o == null) {
+            //从头往后遍历
             for (Node<E> x = first; x != null; x = x.next) {
                 if (x.item == null)
                     return index;
                 index++;
             }
         } else {
+            //从头往后遍历
             for (Node<E> x = first; x != null; x = x.next) {
                 if (o.equals(x.item))
                     return index;
