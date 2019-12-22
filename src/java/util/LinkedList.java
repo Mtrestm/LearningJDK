@@ -361,7 +361,9 @@ public class LinkedList<E>
      * @param e element to be appended to this list
      * @return {@code true} (as specified by {@link Collection#add})
      */
+//    添加元素，一般都是向尾结点处添加
     public boolean add(E e) {
+        // 由此可以看出，添加不需要扩容，不需要复制操作，因此其添加元素效率高于ArrayList
         linkLast(e);
         return true;
     }
