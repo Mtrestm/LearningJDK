@@ -234,19 +234,23 @@ public class LinkedList<E>
      * Unlinks non-null node x.
      */
     E unlink(Node<E> x) {
+        //x.item = null; x.next = null;x.prev = null;这样才将 x 删除干净了
         // assert x != null;
         final E element = x.item;
         final Node<E> next = x.next;
         final Node<E> prev = x.prev;
-
+        //第一步：处理前驱结点的引用
         if (prev == null) {
+            //第一种情况:删除的是第一个结点
             first = next;
         } else {
+            //第二种情况:删除的不是第一个结点，则x的前驱结点需要指向x的后驱结点，并且删除掉x前驱结点指向的prev
             prev.next = next;
             x.prev = null;
         }
-
+        //第二步：处理后驱结点的引用
         if (next == null) {
+            //第一种情况:如果删除的是尾结点,则当前尾结点是x的前驱结点
             last = prev;
         } else {
             next.prev = prev;
