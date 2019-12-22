@@ -919,11 +919,11 @@ public class LinkedList<E>
     }
 
     private class ListItr implements ListIterator<E> {
-        private Node<E> lastReturned;
-        private Node<E> next;
-        private int nextIndex;
+        private Node<E> lastReturned;//迭代器上一个掠过的元素y
+        private Node<E> next;//nextIndex 对应的节点
+        private int nextIndex;//迭代器将要掠过(skip over)的索引位置
         private int expectedModCount = modCount;
-
+        //ListItr可以指定任意位置开始迭代
         ListItr(int index) {
             // assert isPositionIndex(index);
             next = (index == size) ? null : node(index);
@@ -934,6 +934,7 @@ public class LinkedList<E>
             return nextIndex < size;
         }
 
+        //获取下一个节点
         public E next() {
             checkForComodification();
             if (!hasNext())
