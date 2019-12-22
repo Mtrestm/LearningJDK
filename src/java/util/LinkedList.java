@@ -257,7 +257,7 @@ public class LinkedList<E>
             x.next = null;
         }
 
-        x.item = null;
+        x.item = null;//便于垃圾回收器回收
         size--;
         modCount++;
         return element;
@@ -627,18 +627,18 @@ public class LinkedList<E>
      * @return the index of the first occurrence of the specified element in
      *         this list, or -1 if this list does not contain the element
      */
-    ////返回链表中第一个匹配传入元素的索引
+    //返回链表中第一个匹配传入元素的索引
     public int indexOf(Object o) {
         int index = 0;
         if (o == null) {
-            //从头往后遍历
+            //从头往尾遍历
             for (Node<E> x = first; x != null; x = x.next) {
                 if (x.item == null)
                     return index;
                 index++;
             }
         } else {
-            //从头往后遍历
+            //从头往尾遍历
             for (Node<E> x = first; x != null; x = x.next) {
                 if (o.equals(x.item))
                     return index;
@@ -659,8 +659,10 @@ public class LinkedList<E>
      * @return the index of the last occurrence of the specified element in
      *         this list, or -1 if this list does not contain the element
      */
+    //返回链表中最后一个匹配传入元素的索引(所以从后往前遍历)
     public int lastIndexOf(Object o) {
         int index = size;
+        //从尾往头遍历
         if (o == null) {
             for (Node<E> x = last; x != null; x = x.prev) {
                 index--;
@@ -668,6 +670,7 @@ public class LinkedList<E>
                     return index;
             }
         } else {
+            //从尾往头遍历
             for (Node<E> x = last; x != null; x = x.prev) {
                 index--;
                 if (o.equals(x.item))
