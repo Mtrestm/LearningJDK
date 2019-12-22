@@ -416,6 +416,7 @@ public class LinkedList<E>
      * @return {@code true} if this list changed as a result of the call
      * @throws NullPointerException if the specified collection is null
      */
+    //将集合插入到链表尾部，即开始索引位置为size
     public boolean addAll(Collection<? extends E> c) {
         return addAll(size, c);
     }
@@ -435,36 +436,44 @@ public class LinkedList<E>
      * @throws IndexOutOfBoundsException {@inheritDoc}
      * @throws NullPointerException if the specified collection is null
      */
+    //将集合从指定位置index开始插入
+    //记住,不仅仅要维护每个节点,一条链表发生改动时,都要考虑维护表头,表尾
     public boolean addAll(int index, Collection<? extends E> c) {
+        //Step 1:检查index范围
         checkPositionIndex(index);
-
+        //Step 2:将集合转成数组
         Object[] a = c.toArray();
         int numNew = a.length;
         if (numNew == 0)
             return false;
-
+        //Step 3：得到插入位置的前驱节点和后继节点
         Node<E> pred, succ;
+        //3.1(维护表头)如果插入位置为尾部，前驱节点为last，后继节点为null
         if (index == size) {
             succ = null;
             pred = last;
         } else {
+            //3.2否则，调用node()方法得到后继节点，再得到前驱节点
             succ = node(index);
             pred = succ.prev;
         }
-
+        //Step 4：遍历将由集合来组建一条链表
         for (Object o : a) {
             @SuppressWarnings("unchecked") E e = (E) o;
+            //4.1创建新节点
             Node<E> newNode = new Node<>(pred, e, null);
+            //4.2如果插入位置在链表头部
             if (pred == null)
                 first = newNode;
             else
                 pred.next = newNode;
             pred = newNode;
         }
-
+        //Step 5.1:(维护表尾)如果插入位置在尾部，重置last节点
         if (succ == null) {
             last = pred;
         } else {
+            //5.2否则，将插入的链表与先前链表连接起来
             pred.next = succ;
             succ.prev = pred;
         }
