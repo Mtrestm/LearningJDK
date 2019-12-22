@@ -457,7 +457,7 @@ public class LinkedList<E>
             succ = node(index);
             pred = succ.prev;
         }
-        //Step 4：遍历将由集合来组建一条链表
+        //Step 4：遍历将由集合来的数据组建一条链表
         for (Object o : a) {
             @SuppressWarnings("unchecked") E e = (E) o;
             //4.1创建新节点
