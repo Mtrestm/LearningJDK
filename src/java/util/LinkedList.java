@@ -145,10 +145,15 @@ public class LinkedList<E>
     /**
      * Links e as last element.
      */
+    //尾结点处插入结点
     void linkLast(E e) {
+        //获取尾节点
         final Node<E> l = last;
+        //新建节点
         final Node<E> newNode = new Node<>(l, e, null);
+        //将新建的节点作为尾节点
         last = newNode;
+        //将新的尾节点放入链表中维护
         if (l == null)
             first = newNode;
         else
