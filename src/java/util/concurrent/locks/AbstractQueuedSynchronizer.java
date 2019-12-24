@@ -1888,20 +1888,30 @@ public abstract class AbstractQueuedSynchronizer
         /**
          * Adds a new waiter to wait queue.
          * @return its new wait node
+         * 将当前线程封装成一个 Node 节点 放入大 Condition Queue 里面
+         * 大家可以注意到, 下面对 Condition Queue 的操作都没考虑到 并发(Sync Queue 的队列是支持并发操作的), 这是为什么呢? 因为在进行操作 Condition 是当前的线程已经获取了AQS的独占锁, 所以不需要考虑并发的情况
          */
         private Node addConditionWaiter() {
+            // 1. 获取Condition queue 的尾节点
             Node t = lastWaiter;
             // If lastWaiter is cancelled, clean out.
+            // 2.尾节点已经Cancel, 直接进行清除,
+            //    这里有1个问题, 1 何时出现t.waitStatus != Node.CONDITION -> 在对线程进行中断时 ConditionObject -> await -> checkInterruptWhileWaiting -> transferAfterCancelledWait "compareAndSetWaitStatus(node, Node.CONDITION, 0)" <- 导致这种情况一般是 线程中断或 await 超时
+            //    一个注意点: 当Condition进行 await 超时或被中断时, Condition里面的节点是没有被删除掉的, 需要其他 await 在将线程加入 Condition Queue 时调用addConditionWaiter而进而删除, 或 await 操作差不多结束时, 调用 "node.nextWaiter != null" 进行判断而删除 (PS: 通过 signal 进行唤醒时 node.nextWaiter 会被置空, 而中断和超时时不会)
             if (t != null && t.waitStatus != Node.CONDITION) {
+                // 3. 调用 unlinkCancelledWaiters 对 "waitStatus != Node.CONDITION" 的节点进行删除(在Condition里面的Node的waitStatus 要么是CONDITION(正常), 要么就是 0 (signal/timeout/interrupt))
                 unlinkCancelledWaiters();
+                // 4. 获取最新的 lastWaiter
                 t = lastWaiter;
             }
+            // 5. 将当前线程封装成 node 准备放入 Condition Queue 里面
             Node node = new Node(Thread.currentThread(), Node.CONDITION);
+            // 6 .Condition Queue 是空的
             if (t == null)
                 firstWaiter = node;
             else
-                t.nextWaiter = node;
-            lastWaiter = node;
+                t.nextWaiter = node; // 7. 最加到 queue 尾部
+            lastWaiter = node; // 8. 重新赋值 lastWaiter
             return node;
         }
 
