@@ -624,17 +624,27 @@ public abstract class AbstractQueuedSynchronizer
      * @param node the node to insert
      * @return node's predecessor
      */
+    // 将传入的node节点插入到同步队列中
     private Node enq(final Node node) {
+        // 自旋，直至node节点入队成功
         for (;;) {
             Node t = tail;
+            // 运行到这里，存在三种情况
+            // （1）尾节点等于null，头节点等于null，说明CAS尚未成功
+            // （2）尾节点等于null，头节点不等于null，说明CAS已经成功、尾节点尚未初始化
+            // （3）尾节点不等于null，头节点不等于null，说明CAS已经成功、尾节点已经初始化
             if (t == null) { // Must initialize
                 if (compareAndSetHead(new Node()))
                     tail = head;
             } else {
+                // 运行到这里，说明尾节点和头节点都不等于null
                 node.prev = t;
+                // node节点尝试入队
                 if (compareAndSetTail(t, node)) {
+                    // 运行到这里，说明node节点入队成功
                     t.next = node;
-                    return t;
+                    // 返回同步队列中原来的尾节点（node节点中的prev字段）
+                    return t; //node节点入队成功,在这里才跳出循环,返回 node 借点的上一个节点
                 }
             }
         }
@@ -1731,8 +1741,10 @@ public abstract class AbstractQueuedSynchronizer
          * attempt to set waitStatus fails, wake up to resync (in which
          * case the waitStatus can be transiently and harmlessly wrong).
          */
+        // 将传入的node节点插入到同步队列中
         Node p = enq(node);//返回的是node的前一个节点
         int ws = p.waitStatus;
+        //If cancelled or attempt to set waitStatus fails, wake up to resync
         if (ws > 0 || !compareAndSetWaitStatus(p, ws, Node.SIGNAL))
             LockSupport.unpark(node.thread);//唤醒刚加入到同步队列的线程，被唤醒之后，该线程才能从await()方法的park()中返回。
         return true;
