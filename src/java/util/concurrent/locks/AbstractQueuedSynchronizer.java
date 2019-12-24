@@ -1959,7 +1959,7 @@ public abstract class AbstractQueuedSynchronizer
          * storms.
          */
 // 在 调用 addConditionWaiter 将线程放入 Condition Queue 里面时 或 awiat 方法获取 差不多结束时 进行清理 Condition queue 里面的因 timeout/interrupt 而还存在的节点
-// * 这个删除操作比较巧妙, 其中引入了 trail 节点， 可以理解为traverse整个 Condition Queue 时遇到的最后一个有效的节点
+// * 这个删除操作比较巧妙,会遍历条件队列中所有的节点， 可以理解为traverse整个 Condition Queue 时遇到的最后一个有效的节点!!!
         private void unlinkCancelledWaiters() {
             Node t = firstWaiter; // 1. 先初始化 next 节点
             Node trail = null;
