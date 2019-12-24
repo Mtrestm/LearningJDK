@@ -1711,10 +1711,17 @@ public abstract class AbstractQueuedSynchronizer
      * @return true if successfully transferred (else the node was
      * cancelled before signal)
      */
+    /**
+     * 将 Node 从Condition Queue 转移到 Sync Queue 里面
+     *  在调用transferForSignal之前, 会 first.nextWaiter = null;
+     *  *而我们发现 若节点是因为 timeout / interrupt 进行转移, 则不会进行这步操作; 两种情况的转移都会把 waitStatus 置为 0
+     *  transferForSignal只有在节点被正常唤醒才调用的正常转移的方法
+     */
     final boolean transferForSignal(Node node) {
         /*
          * If cannot change waitStatus, the node has been cancelled.
          */
+        // 1. 若 node 已经 cancelled 则失败
         if (!compareAndSetWaitStatus(node, Node.CONDITION, 0))
             return false;
 
@@ -1724,10 +1731,10 @@ public abstract class AbstractQueuedSynchronizer
          * attempt to set waitStatus fails, wake up to resync (in which
          * case the waitStatus can be transiently and harmlessly wrong).
          */
-        Node p = enq(node);
+        Node p = enq(node);//返回的是node的前一个节点
         int ws = p.waitStatus;
         if (ws > 0 || !compareAndSetWaitStatus(p, ws, Node.SIGNAL))
-            LockSupport.unpark(node.thread);
+            LockSupport.unpark(node.thread);//唤醒刚加入到同步队列的线程，被唤醒之后，该线程才能从await()方法的park()中返回。
         return true;
     }
 
