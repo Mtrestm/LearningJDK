@@ -61,6 +61,7 @@ public abstract class AbstractOwnableSynchronizer
     /**
      * The current owner of exclusive mode synchronization.
      */
+    //exclusiveOwnerThread代表的是当前获得同步的线程，因为是独占模式，在exclusiveOwnerThread持有同步的过程中其他的线程的任何同步获取请求将不能得到满足
     private transient Thread exclusiveOwnerThread;
 
     /**
