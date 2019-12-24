@@ -378,7 +378,7 @@ public abstract class AbstractQueuedSynchronizer
      * expert group, for helpful ideas, discussions, and critiques
      * on the design of this class.
      */
-    //代表 Thread 存在 Sync Queue 的节点还是 Condition Queue 的节点
+    //代表 Thread 存在 Sync Queue 的节点里还是 Condition Queue 的节点里
     static final class Node {
         /** Marker to indicate a node is waiting in shared mode */
         /** 标识节点是否是 共享的节点(这样的节点只存在于 Sync Queue 里面) */
