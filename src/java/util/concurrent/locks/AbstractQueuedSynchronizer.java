@@ -390,22 +390,26 @@ public abstract class AbstractQueuedSynchronizer
         /** waitStatus value to indicate thread has cancelled */
         //只有这个状态是大于0的，也就是CANCELLED，也就是被取消了，不需要为此线程协调同步变量的竞争了
         /**
+         *  (节点取消:表示当前线程在等待的时候已经超时了或者被取消了)
          *  CANCELLED 说明节点已经 取消获取 lock 了(一般是由于 interrupt 或 timeout 导致的)
          *  很多时候是在 cancelAcquire 里面进行设置这个标识
          */
         static final int CANCELLED =  1;
-        /** waitStatus value to indicate successor's thread needs unparking */
+        /** (节点等待触发)waitStatus value to indicate successor's thread needs unparking */
         //SIGNAL 标识当前节点的后继节点需要唤醒(PS: 这个通常是在 独占模式下使用, 在共享模式下有时用 PROPAGATE)
         //后续节点中的线程对象已经被阻塞或即将被阻塞，如果当前节点中的线程对象释放锁或放弃获取锁，需要唤醒后续节点中的线程对象。
+         //当前线程释放了同步状态或者被取消的时候会通知后继节点，使后继节点得以运行
         static final int SIGNAL    = -1;
-        /** waitStatus value to indicate thread is waiting on condition */
+        /** (节点等待条件)waitStatus value to indicate thread is waiting on condition */
        // 当前节点在 Condition Queue 里面
        //当前节点处于条件队列中。条件队列中的节点转移到同步队列中，这个节点中的waitStatus会从-2变为0。
+        //节点在等待队列中，等待Condition，当其他线程在Condition上调用signal的时候，该线程会从等待队列转移到同步队列中去，加入到同步状态的获取。
         static final int CONDITION = -2;
         /**
-         * waitStatus value to indicate the next acquireShared should
+         * (节点状态需要向后传播。)waitStatus value to indicate the next acquireShared should
          * unconditionally propagate
          * 当前节点获取到 lock 或进行 release lock 时, 共享模式的最终状态是 PROPAGATE(PS: 有可能共享模式的节点变成 PROPAGATE 之前就被其后继节点抢占 head 节点, 而从Sync Queue中被踢出掉)
+         * //表示下一次共享式同步状态会无条件的传播下去
          */
         static final int PROPAGATE = -3;
 
@@ -553,17 +557,23 @@ public abstract class AbstractQueuedSynchronizer
      * If head exists, its waitStatus is guaranteed not to be
      * CANCELLED.
      */
+//    头结点，你直接把它当做 当前持有锁的线程可能是最好理解的
     private transient volatile Node head;
 
     /**
      * Tail of the wait queue, lazily initialized.  Modified only via
      * method enq to add new wait node.
      */
+    /* 阻塞的尾节点，每个新的节点进来，都插入
+到最后，也就形成了一个链表*/
     private transient volatile Node tail;
 
     /**
      * The synchronization state.
      */
+    /* 这个是最重要的，代表当前锁的状态，0代表没有
+被占用，大于 0 代表有线程持有当前锁*/
+// 这个值可以大于 1，是因为锁可以重入，每次重入都加上 1
     private volatile int state;
 
     /**
