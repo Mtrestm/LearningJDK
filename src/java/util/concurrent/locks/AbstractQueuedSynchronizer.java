@@ -34,11 +34,12 @@
  */
 
 package java.util.concurrent.locks;
-import java.util.concurrent.TimeUnit;
+import sun.misc.Unsafe;
+
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
-import sun.misc.Unsafe;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Provides a framework for implementing blocking locks and related
@@ -377,21 +378,34 @@ public abstract class AbstractQueuedSynchronizer
      * expert group, for helpful ideas, discussions, and critiques
      * on the design of this class.
      */
+    //代表 Thread 存在 Sync Queue 的节点还是 Condition Queue 的节点
     static final class Node {
         /** Marker to indicate a node is waiting in shared mode */
+        /** 标识节点是否是 共享的节点(这样的节点只存在于 Sync Queue 里面) */
         static final Node SHARED = new Node();
         /** Marker to indicate a node is waiting in exclusive mode */
+        /** 标识节点是 独占模式 */
         static final Node EXCLUSIVE = null;
 
         /** waitStatus value to indicate thread has cancelled */
+        //只有这个状态是大于0的，也就是CANCELLED，也就是被取消了，不需要为此线程协调同步变量的竞争了
+        /**
+         *  CANCELLED 说明节点已经 取消获取 lock 了(一般是由于 interrupt 或 timeout 导致的)
+         *  很多时候是在 cancelAcquire 里面进行设置这个标识
+         */
         static final int CANCELLED =  1;
         /** waitStatus value to indicate successor's thread needs unparking */
+        //SIGNAL 标识当前节点的后继节点需要唤醒(PS: 这个通常是在 独占模式下使用, 在共享模式下有时用 PROPAGATE)
+        //后续节点中的线程对象已经被阻塞或即将被阻塞，如果当前节点中的线程对象释放锁或放弃获取锁，需要唤醒后续节点中的线程对象。
         static final int SIGNAL    = -1;
         /** waitStatus value to indicate thread is waiting on condition */
+       // 当前节点在 Condition Queue 里面
+       //当前节点处于条件队列中。条件队列中的节点转移到同步队列中，这个节点中的waitStatus会从-2变为0。
         static final int CONDITION = -2;
         /**
          * waitStatus value to indicate the next acquireShared should
          * unconditionally propagate
+         * 当前节点获取到 lock 或进行 release lock 时, 共享模式的最终状态是 PROPAGATE(PS: 有可能共享模式的节点变成 PROPAGATE 之前就被其后继节点抢占 head 节点, 而从Sync Queue中被踢出掉)
          */
         static final int PROPAGATE = -3;
 
@@ -442,6 +456,12 @@ public abstract class AbstractQueuedSynchronizer
          * cancelled thread never succeeds in acquiring, and a thread only
          * cancels itself, not any other node.
          */
+        /**
+         * 节点在 Sync Queue 里面时的前继节点(主要来进行 skip CANCELLED 的节点)
+         * 注意: 根据 addWaiter方法:
+         *  1. prev节点在队列里面, 则 prev != null 肯定成立
+         *  2. prev != null 成立, 不一定 node 就在 Sync Queue 里面
+         */
         volatile Node prev;
 
         /**
@@ -457,12 +477,17 @@ public abstract class AbstractQueuedSynchronizer
          * point to the node itself instead of null, to make life
          * easier for isOnSyncQueue.
          */
+        /**
+         * Node 在 Sync Queue 里面的后继节点, 主要是在release lock 时进行后继节点的唤醒
+         * 而后继节点在前继节点上打上 SIGNAL 标识, 来提醒他 release lock 时需要唤醒
+         */
         volatile Node next;
 
         /**
          * The thread that enqueued this node.  Initialized on
          * construction and nulled out after use.
          */
+        //线程对象(获取 lock 的引用)
         volatile Thread thread;
 
         /**
@@ -475,11 +500,19 @@ public abstract class AbstractQueuedSynchronizer
          * we save a field by using special value to indicate shared
          * mode.
          */
+//        Node使用了一个变量nextWaiter来代表两种含义，
+//        当在独占模式下，nextWaiter表示下一个等在ConditionObject上的Node(nextWaiter表示条件队列中当前节点的下一个节点)
+//        在共享模式下就是SHARED，因为对于任何一个同步器来说，都不可能同时实现共享和独占两种模式的
+
+//        作用分成两种:
+//    1. 在 Sync Queue 里面, nextWaiter用来判断节点是 共享模式, 还是独占模式
+//    2. 在 Condition queue 里面, 节点主要是链接且后继节点 (Condition queue是一个单向的, 不支持并发的 list)
         Node nextWaiter;
 
         /**
          * Returns true if node is waiting in shared mode.
          */
+        //当前节点是否是共享模式
         final boolean isShared() {
             return nextWaiter == SHARED;
         }
@@ -491,6 +524,7 @@ public abstract class AbstractQueuedSynchronizer
          *
          * @return the predecessor of this node
          */
+        //获取 node 的前继节点
         final Node predecessor() throws NullPointerException {
             Node p = prev;
             if (p == null)
@@ -501,12 +535,12 @@ public abstract class AbstractQueuedSynchronizer
 
         Node() {    // Used to establish initial head or SHARED marker
         }
-
+        //初始化 node 用于 Sync Queue 里面
         Node(Thread thread, Node mode) {     // Used by addWaiter
             this.nextWaiter = mode;
             this.thread = thread;
         }
-
+        //初始化 node 用于 Condition Queue 里面
         Node(Thread thread, int waitStatus) { // Used by Condition
             this.waitStatus = waitStatus;
             this.thread = thread;
