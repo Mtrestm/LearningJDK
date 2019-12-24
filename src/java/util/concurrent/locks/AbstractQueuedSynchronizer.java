@@ -1744,7 +1744,7 @@ public abstract class AbstractQueuedSynchronizer
         // 将传入的node节点插入到同步队列中
         Node p = enq(node);//返回的是node的前一个节点
         int ws = p.waitStatus;
-        //If cancelled or attempt to set waitStatus fails, wake up to resync
+        //这是针对同步队列中当前节点的上一个节点的操作,如果上一个节点(If cancelled or attempt to set waitStatus fails, wake up to resync)--->说明步队列中当前节点的上一个节点失去了唤醒当前新加入到同步队列的节点的机会,所以才在下面调用手动调用unpark方法唤醒
         if (ws > 0 || !compareAndSetWaitStatus(p, ws, Node.SIGNAL))
             LockSupport.unpark(node.thread);//唤醒刚加入到同步队列的线程，被唤醒之后，该线程才能从await()方法的park()中返回。
         return true;
