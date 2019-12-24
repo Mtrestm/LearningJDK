@@ -1958,22 +1958,24 @@ public abstract class AbstractQueuedSynchronizer
          * without requiring many re-traversals during cancellation
          * storms.
          */
+// 在 调用 addConditionWaiter 将线程放入 Condition Queue 里面时 或 awiat 方法获取 差不多结束时 进行清理 Condition queue 里面的因 timeout/interrupt 而还存在的节点
+// * 这个删除操作比较巧妙, 其中引入了 trail 节点， 可以理解为traverse整个 Condition Queue 时遇到的最后一个有效的节点
         private void unlinkCancelledWaiters() {
-            Node t = firstWaiter;
+            Node t = firstWaiter; // 1. 先初始化 next 节点
             Node trail = null;
             while (t != null) {
                 Node next = t.nextWaiter;
-                if (t.waitStatus != Node.CONDITION) {
-                    t.nextWaiter = null;
-                    if (trail == null)
-                        firstWaiter = next;
+                if (t.waitStatus != Node.CONDITION) {// 2. 节点不有效, 在Condition Queue 里面 Node.waitStatus 只有可能是 CONDITION 或是 0(timeout/interrupt引起的)
+                    t.nextWaiter = null;// 3. Node.nextWaiter 置空
+                    if (trail == null)// 4. 没有遇到有效的节点,维护firstWaiter
+                        firstWaiter = next; // 5. 将 next 赋值给 firstWaiter(此时 next 可能也是无效的, 这只是一个临时处理)
                     else
-                        trail.nextWaiter = next;
-                    if (next == null)
+                        trail.nextWaiter = next; // 6. next 赋值给 trail.nextWaiter, 这一步其实就是删除节点 t
+                    if (next == null) // 7. next == null 说明 已经 traverse 完了 Condition Queue
                         lastWaiter = trail;
                 }
                 else
-                    trail = t;
+                    trail = t;   // 8. 将有效节点赋值给 trail
                 t = next;
             }
         }
