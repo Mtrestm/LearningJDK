@@ -816,15 +816,23 @@ public abstract class AbstractQueuedSynchronizer
      * @param node the node
      */
     //清除因中断/超时而放弃获取lock的线程节点(此时节点在 Sync Queue 里面)
+
+    /**
+     * 首次，可能由于实现者的粗心，在实现tryAcquire(int)的时候会意外抛出异常；其次，在a2处有可能会响应中断而抛出InterruptedException，如响应中断的获取锁方法doAcquireInterruptibly(int)；最后，如果是doAcquireNanos或doAcquireSharedNanos，在检测超时仍未获得锁，则会因为failed == true则在finally块中执行出队操作。不论在AQS中何种acquire类型的衍生方法，在进入自旋之前就会先将当前线程封装为Node节点，并进行入队操作。如果途中发生任何异常，则必须将该队列出队，实现这操作的方法cancelAcquire(Node)，下面我们来查看其源码
+     * @param node
+     */
     private void cancelAcquire(Node node) {
         // Ignore if node doesn't exist
         if (node == null)
             return;
-
+        // node.thread只有在构造器，setHead和cancelAcquire这三个地方有设置
+        // 被cancel的节点也很特殊，也会跟head一样将thread置为null
         node.thread = null;
 
         // Skip cancelled predecessors
         Node pred = node.prev;
+        // 只有cancelled节点的waitStatus > 0, 这里跳过所有状态为cancelled的节点
+        // 因为head绝不可能为cancelled，所以pred最低限度为head
         while (pred.waitStatus > 0)
             node.prev = pred = pred.prev;
 
@@ -836,26 +844,43 @@ public abstract class AbstractQueuedSynchronizer
         // Can use unconditional write instead of CAS here.
         // After this atomic step, other Nodes can skip past us.
         // Before, we are free of interference from other threads.
+        // 将需要出队的节点的状态置为cancelled, 出队的操作会在shouldParkAfterFailedAcquire处顺便做了
         node.waitStatus = Node.CANCELLED;
 
         // If we are the tail, remove ourselves.
+        // 如果要移除的节点就是tail，则移除自己 ->>
+        // 如果compareAndSetTail失败，那就如上面的cancelled节点一样被跳过，可能这也是shouldParkAfterFailedAcquire从tail往前遍历的原因
+        // e1 线程执行至此，或者是下面if语句的CAS失败
         if (node == tail && compareAndSetTail(node, pred)) {
+            // e2 下面的cas失败也无妨，shouldParkAfterFailedAcquire会删除cancelled节点
             compareAndSetNext(pred, predNext, null);
+            // e5: cas successfully
         } else {
             // If successor needs signal, try to set pred's next-link
             // so it will get one. Otherwise wake it up to propagate.
             int ws;
+            // 这个if else结构的作用就是先找直接前驱看看是否能作为signal的节点，如果不能就只好唤醒当前最靠近被删除节点node的非cancel节点
             if (pred != head &&
+                    // 传入的node节点前的所有节点仅剩下initial, signal和propagate三种状态 ->>
+                    // 将前驱节点的waitStatus<=0的转换为signal
                     ((ws = pred.waitStatus) == Node.SIGNAL ||
                             (ws <= 0 && compareAndSetWaitStatus(pred, ws, Node.SIGNAL))) &&
+                    // 只有head或者被cancel节点的thread为null，防止数据竞争下有前驱节点被置为cancelled的情况
                     pred.thread != null) {
                 Node next = node.next;
+                // e3
+                // 如果node为tail但是上面compareAndSetTail失败就会存在next==null的情况，如果直接后继节点为cancelled的话就保持e3+e6的状态
                 if (next != null && next.waitStatus <= 0)
+                    // 其实这里跨度非常大，同时node.prev还没设置
+                    // e4: 下面的cas成功
                     compareAndSetNext(pred, predNext, next);
             } else {
+                // 如果是新的前驱是头结点，或者新的前驱不是头结点但他的waitStatus为propagate或0且设置为signal失败 ->>
+                // 这里有可能唤醒sync queue中除head的节点
                 unparkSuccessor(node);
             }
 
+            // 执行到这一步, 被cancelled的节点无论是tail还是其他节点，
             node.next = node; // help GC
         }
     }
