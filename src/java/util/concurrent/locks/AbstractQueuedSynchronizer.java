@@ -1275,6 +1275,7 @@ public abstract class AbstractQueuedSynchronizer
 //            acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
 //            selfInterrupt();
 
+        //重写上面的源码方法
         if(tryAcquire(arg)) return;
         // 为当前线程创建节点，并将这个节点插入到同步队列中
         Node node = addWaiter(Node.EXCLUSIVE);
