@@ -719,6 +719,7 @@ public abstract class AbstractQueuedSynchronizer
          * fails or if status is changed by waiting thread.
          */
         int ws = node.waitStatus;
+        // 通知完一次就重置为0，但并不保证成功
         if (ws < 0)
             compareAndSetWaitStatus(node, ws, 0);
 
@@ -729,13 +730,19 @@ public abstract class AbstractQueuedSynchronizer
          * non-cancelled successor.
          */
         Node s = node.next;
+        // waitStatus中只有cancelled大于0
+        // 看过cancelAcquire就知道为什么从tail往前遍历
         if (s == null || s.waitStatus > 0) {
+            // 如果后继节点为null，或者他的状态为cancelled，则从tail往前迭代，找到最靠近node且waitStatus不为cancelled的节点, 时间复杂度O(n)
             s = null;
             for (Node t = tail; t != null && t != node; t = t.prev)
+                // 这里的语义很明确，将sync queue(里面不存在condition节点)里的0，signal，propagate节点都可以进行唤醒
+                // 0可能是从condition queue中通过enq入队，仍未来得及设置前驱节点waitStatus的情况
                 if (t.waitStatus <= 0)
                     s = t;
         }
         if (s != null)
+            // 如果找到符合的节点，则进行唤醒, s不一定是直接后继节点
             LockSupport.unpark(s.thread);
     }
 
@@ -1396,12 +1403,16 @@ public abstract class AbstractQueuedSynchronizer
      *            can represent anything you like.
      * @return the value returned from {@link #tryRelease}
      */
-    //释放资源(锁)并唤醒阻塞队列中的下个节点。
+    //释放资源(锁)并唤醒同步队列中的下个节点。
     public final boolean release(int arg) {
+        // tryRelease由子类实现, arg为释放的层数
         if (tryRelease(arg)) {
+            // 同步队列仅为头结点拥有锁
             Node h = head;
+            // head的waitStatus为0说明没有节点被添加至sync queue
+            // head的waitStatus为0的话说明head没有后继节点，不需要执行唤醒
             if (h != null && h.waitStatus != 0)
-                unparkSuccessor(h);//unblock，唤醒head的后继节点
+                unparkSuccessor(h);//unblock，唤醒head的后继节点(唤醒successor)
             return true;
         }
         return false;
