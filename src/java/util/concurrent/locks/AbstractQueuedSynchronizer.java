@@ -815,6 +815,7 @@ public abstract class AbstractQueuedSynchronizer
      *
      * @param node the node
      */
+    //清除因中断/超时而放弃获取lock的线程节点(此时节点在 Sync Queue 里面)
     private void cancelAcquire(Node node) {
         // Ignore if node doesn't exist
         if (node == null)
@@ -882,6 +883,7 @@ public abstract class AbstractQueuedSynchronizer
              * Predecessor was cancelled. Skip over predecessors and
              * indicate retry.
              */
+            //删除被取消的节点
             do {
                 node.prev = pred = pred.prev;
             } while (pred.waitStatus > 0);
@@ -892,6 +894,7 @@ public abstract class AbstractQueuedSynchronizer
              * need a signal, but don't park yet.  Caller will need to
              * retry to make sure it cannot acquire before parking.
              */
+            // 巧妙地复用了acquireQueue中的自旋，前驱的节点状态只能为0和propagate，其他状态都被上述逻辑所处理(将前驱为0和propagate的节点置为signal)
             compareAndSetWaitStatus(pred, ws, Node.SIGNAL);
         }
         return false;
@@ -934,6 +937,7 @@ public abstract class AbstractQueuedSynchronizer
     //获取资源(独占式)
 //    方法acquireQueued使得新添加的Node在一个for死循环中不断的轮询，也就是自旋，acquireQueued方法退出的条件是：
     //  该节点的前驱节点是头结点，头结点代表的是获得锁的节点，只有它释放了state其他线程才能获得这个变量的所有权在条件1的前提下，方法tryAcquire返回true，也就是可以获得同步资源state
+    //虽然acquireQueued(Node, int)为忽略中断的方法，但友好地遵守了Don‘t swallow Interrupts原则，向上层返回中断标志。
     final boolean acquireQueued(final Node node, int arg) {
         boolean failed = true;
         try {
@@ -959,7 +963,7 @@ public abstract class AbstractQueuedSynchronizer
             }
         } finally {
             if (failed)
-                //没有获取到独占锁
+                // 如果抛出异常则取消锁的获取，也就是出队(sync queue)操作
                 cancelAcquire(node);
         }
     }
