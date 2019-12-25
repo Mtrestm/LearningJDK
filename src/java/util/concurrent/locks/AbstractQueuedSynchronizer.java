@@ -677,6 +677,7 @@ public abstract class AbstractQueuedSynchronizer
     private Node addWaiter(Node mode) {
         Node node = new Node(Thread.currentThread(), mode);
         // Try the fast path of enq; backup to full enq on failure
+        // 尝试快速入队，如果失败则降级至full enq
         Node pred = tail;
         // 如果尾节点不等于null
         if (pred != null) {
