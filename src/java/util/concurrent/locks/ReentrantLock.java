@@ -205,7 +205,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          * Performs lock.  Try immediate barge, backing up to normal
          * acquire on failure.
          */
-        //加锁
+        //加锁(因为可以执行 acquire,这个方法一定会获取锁)
         final void lock() {
             //执行CAS操作，本质就是CAS更新state：判断state是否为0，如果为0则把0更新为1，并返回true否则返回false
             if (compareAndSetState(0, 1))
