@@ -763,18 +763,29 @@ public abstract class AbstractQueuedSynchronizer
          * unparkSuccessor, we need to know if CAS to reset status
          * fails, if so rechecking.
          */
+        //自旋(循环，直至唤醒同步等待队列中的所有节点)
         for (; ; ) {
             Node h = head;
+            // 如果头节点不等于null并且头节点不等于尾节点
             if (h != null && h != tail) {
                 int ws = h.waitStatus;
+                //表示后继节点需要被唤醒
                 if (ws == Node.SIGNAL) {
+                    // 初始化节点状态
+                    //这里需要CAS原子操作，因为setHeadAndPropagate和releaseShared这两个方法都会调用doReleaseShared，避免多次unpark唤醒操作
                     if (!compareAndSetWaitStatus(h, Node.SIGNAL, 0))
+                        // 如果初始化节点状态失败，继续循环执行
                         continue;            // loop to recheck cases
+                    // 执行唤醒操作
                     unparkSuccessor(h);
-                } else if (ws == 0 &&
+                }
+                //如果后继节点暂时不需要唤醒，那么当前头节点状态更新为PROPAGATE，确保后续可以传递给后继节点
+                else if (ws == 0 &&
                         !compareAndSetWaitStatus(h, 0, Node.PROPAGATE))
                     continue;                // loop on failed CAS
             }
+            // 如果在唤醒的过程中头节点没有更改，退出循环
+            // 这里防止其它线程又设置了头节点，说明其它线程获取了共享锁，会继续循环操作
             if (h == head)                   // loop if head changed
                 break;
         }
@@ -819,7 +830,7 @@ public abstract class AbstractQueuedSynchronizer
                 (h = head) == null || h.waitStatus < 0) {
             // 新head的后继节点
             Node s = node.next;
-            // 如果后继节点为空或者后继节点为共享类型，则进行唤醒后继节点
+            // 如果后继节点为空或者后继节点为共享类型(正在共享模式中等待)，则进行唤醒后继节点
             // 这里后继节点为空意思是只剩下当前头节点了
             if (s == null || s.isShared())
                 doReleaseShared();
@@ -1108,13 +1119,15 @@ public abstract class AbstractQueuedSynchronizer
                 // 节点被中断非正常唤醒后继续park
                 //shouldParkAfterFailedAcquire 当node的前驱结点状态是signal时返回true，本次是false的话下次for循环过来会变为true
                 // 接着park node，如果当前线程被中断，设置interrupted = true，下次for过来继续park;如果是被正常unpark，就不用管了
-                // 6. 调用 shouldParkAfterFailedAcquire 判断是否需要中断(这里可能会一开始 返回 false, 但在此进去后直接返回 true(主要和前继节点的状态是否是 signal))
+                // 6. 调用 shouldParkAfterFailedAcquire 判断是否需要中断当前线程(这里可能会一开始 返回 false, 但在此进去后直接返回 true(主要和前继节点的状态是否是 signal))
             // 7. 现在lock还是被其他线程占用 那就睡一会, 返回值判断是否这次线程的唤醒是被中断唤醒
                 if (shouldParkAfterFailedAcquire(p, node) &&
                         parkAndCheckInterrupt())
                     interrupted = true;
             }
         } finally {
+            // 运行到这里，要么当前线程已经获取共享锁，要么抛出异常
+            // 如果抛出异常，调用cancelAcquire方法
             // 8. 在整个获取中出错(比如线程中断/超时)
             if (failed)
                 // 9. 清除 node 节点(清除的过程是先给 node 打上 CANCELLED标志, 然后再删除)
@@ -1286,6 +1299,7 @@ public abstract class AbstractQueuedSynchronizer
      *                                       correctly.
      * @throws UnsupportedOperationException if shared mode is not supported
      */
+    //负数为失败；0表示在共享锁模式下获取锁成功，但是不需要后继节点获取共享锁；正数为共享锁获取成功并且需要传播。
     protected int tryAcquireShared(int arg) {
         throw new UnsupportedOperationException();
     }
