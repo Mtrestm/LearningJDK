@@ -147,15 +147,20 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             return false;
         }
 
+        //ReentrantLock类中的内部类Sync实现的tryRelease(int releases)
         protected final boolean tryRelease(int releases) {
+
             int c = getState() - releases;
             if (Thread.currentThread() != getExclusiveOwnerThread())
                 throw new IllegalMonitorStateException();
             boolean free = false;
+            //判断状态是否为0，如果是则说明已释放同步状态
             if (c == 0) {
                 free = true;
+                //设置Owner为null
                 setExclusiveOwnerThread(null);
             }
+            //设置更新同步状态
             setState(c);
             return free;
         }
@@ -465,6 +470,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * @throws IllegalMonitorStateException if the current thread does not
      *         hold this lock
      */
+    //ReentrantLock类的unlock
     public void unlock() {
         sync.release(1);
     }
