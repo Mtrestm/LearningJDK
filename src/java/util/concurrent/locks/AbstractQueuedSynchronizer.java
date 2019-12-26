@@ -703,6 +703,7 @@ public abstract class AbstractQueuedSynchronizer
      */
     private void setHead(Node node) {
         head = node;
+        //因为当前线程已经获取到锁了,它的 thread 已经没有意义了,同步代码正在执行了
         node.thread = null;
         node.prev = null;
     }
@@ -1002,7 +1003,9 @@ public abstract class AbstractQueuedSynchronizer
                 // 当前驱节点是头节点时才能获取资源，成功后将将node设为头节点
 //                首先会调用方法tryAcquire来尝试获的锁，而tryAcquire这个方法是需要子类来实现的，子类的实现无非就是通过compareAndSetState、getState、setState三个方法来操作同步变量state，子类的方法实现需要根据各自的需求场景来实现。
                 if (p == head && tryAcquire(arg)) {
+                    //获取到锁之后将当前node设置为头结点 head指向当前节点node
                     setHead(node);
+                    //p.next就是之前的头结点，它没有用了，所以把它gc掉
                     p.next = null; // help GC
                     failed = false;
                     return interrupted;
