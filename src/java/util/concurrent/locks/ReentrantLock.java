@@ -195,6 +195,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
     /**
      * Sync object for non-fair locks
      */
+    //非公平锁实现
     static final class NonfairSync extends Sync {
         private static final long serialVersionUID = 7316153563782823691L;
 
@@ -202,10 +203,14 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          * Performs lock.  Try immediate barge, backing up to normal
          * acquire on failure.
          */
+        //加锁
         final void lock() {
+            //执行CAS操作，本质就是CAS更新state：判断state是否为0，如果为0则把0更新为1，并返回true否则返回false
             if (compareAndSetState(0, 1))
+                //成功则将独占锁线程设置为当前线程
                 setExclusiveOwnerThread(Thread.currentThread());
             else
+                //否则再次请求同步状态(尝试获取独占锁)
                 acquire(1);
         }
 
@@ -253,6 +258,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * Creates an instance of {@code ReentrantLock}.
      * This is equivalent to using {@code ReentrantLock(false)}.
      */
+    //默认构造，创建非公平锁NonfairSync
     public ReentrantLock() {
         sync = new NonfairSync();
     }
@@ -263,6 +269,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      *
      * @param fair {@code true} if this lock should use a fair ordering policy
      */
+    //构造函数,支持根据传参创建公平锁还是非公平锁
     public ReentrantLock(boolean fair) {
         sync = fair ? new FairSync() : new NonfairSync();
     }
@@ -281,6 +288,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * purposes and lies dormant until the lock has been acquired,
      * at which time the lock hold count is set to one.
      */
+    //加锁操作
     public void lock() {
         sync.lock();
     }
