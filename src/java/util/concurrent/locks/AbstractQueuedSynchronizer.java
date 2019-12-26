@@ -788,8 +788,16 @@ public abstract class AbstractQueuedSynchronizer
      * @param node      the node
      * @param propagate the return value from a tryAcquireShared
      */
+    //一旦获取共享锁，会调用 setHeadAndPropagate 方法同时唤醒后继节点，实现共享模式
+//    该方法负责设置新的头节点，并执行传播操作。传播操作具体是节点指唤等待队列的第一个节点后，被唤醒的节点由于自旋的缘故又会调用该方法唤醒其后续点，直到整个队列都被唤醒。
+    //该方法主要做了两个重要的步骤：
+//   1. 将当前节点设置为新的头节点，这点很重要，这意味着当前节点的前置节点（旧头节点）已经获取共享锁了，从队列中去除；
+//   2. 调用 doReleaseShared 方法，它会调用 unparkSuccessor 方法唤醒后继节点。
     private void setHeadAndPropagate(Node node, int propagate) {
+        // h在这里是旧的head
         Node h = head; // Record old head for check below
+        // 将node节点设为头节点，将node节点中的线程对象设为null，将node节点中的prev字段设为null
+        // 这里不需要加锁操作，因为获取共享锁后，会从FIFO队列中依次唤醒队列，并不会产生并发安全问题
         setHead(node);
         /*
          * Try to signal next queued node if:
@@ -809,7 +817,10 @@ public abstract class AbstractQueuedSynchronizer
          */
         if (propagate > 0 || h == null || h.waitStatus < 0 ||
                 (h = head) == null || h.waitStatus < 0) {
+            // 新head的后继节点
             Node s = node.next;
+            // 如果后继节点为空或者后继节点为共享类型，则进行唤醒后继节点
+            // 这里后继节点为空意思是只剩下当前头节点了
             if (s == null || s.isShared())
                 doReleaseShared();
         }
@@ -1072,29 +1083,41 @@ public abstract class AbstractQueuedSynchronizer
      * @param arg the acquire argument
      */
     private void doAcquireShared(int arg) {
+        //1.首先依然是调用 addWaiter 方法进行新建Node(共享的节点)加入到 Sync Queue 里面
         final Node node = addWaiter(Node.SHARED);
         boolean failed = true;
         try {
             boolean interrupted = false;
             for (; ; ) {
+                // 2. 获取当前节点的前继节点 (当一个n在 Sync Queue 里面, 并且没有获取 lock 的 node 的前继节点不可能是 null)
                 final Node p = node.predecessor();
                 if (p == head) {
+                    // 3. 判断前继节点是否是head节点(前继节点是head, 存在两种情况 (1) 前继节点现在占用 lock (2)前继节点是个空节点, 已经释放 lock, node 现在有机会获取 lock); 则再次调用 tryAcquireShared 尝试获取一下
                     int r = tryAcquireShared(arg);
                     if (r >= 0) {
+                        // 4. 获取 lock 成功, 设置新的 head, 并唤醒后继获取  readLock 的节点
                         setHeadAndPropagate(node, r);
                         p.next = null; // help GC
-                        if (interrupted)
+                        if (interrupted)// 5. 在获取 lock 时, 被中断过, 则自己再自我中断一下(外面的函数可能需要这个参数)
                             selfInterrupt();
                         failed = false;
                         return;
                     }
                 }
+                //以下和独占锁的获取一致
+                // 节点被中断非正常唤醒后继续park
+                //shouldParkAfterFailedAcquire 当node的前驱结点状态是signal时返回true，本次是false的话下次for循环过来会变为true
+                // 接着park node，如果当前线程被中断，设置interrupted = true，下次for过来继续park;如果是被正常unpark，就不用管了
+                // 6. 调用 shouldParkAfterFailedAcquire 判断是否需要中断(这里可能会一开始 返回 false, 但在此进去后直接返回 true(主要和前继节点的状态是否是 signal))
+            // 7. 现在lock还是被其他线程占用 那就睡一会, 返回值判断是否这次线程的唤醒是被中断唤醒
                 if (shouldParkAfterFailedAcquire(p, node) &&
                         parkAndCheckInterrupt())
                     interrupted = true;
             }
         } finally {
+            // 8. 在整个获取中出错(比如线程中断/超时)
             if (failed)
+                // 9. 清除 node 节点(清除的过程是先给 node 打上 CANCELLED标志, 然后再删除)
                 cancelAcquire(node);
         }
     }
