@@ -763,7 +763,7 @@ public abstract class AbstractQueuedSynchronizer
          * unparkSuccessor, we need to know if CAS to reset status
          * fails, if so rechecking.
          */
-        //自旋(循环，直至唤醒同步等待队列中的所有节点)
+        //自旋(通过自旋保证唤醒后继节点,从而后继节点获取共享锁,如此最终唤醒同步等待队列中的所有可以唤醒的节点来竞争资源)
         for (; ; ) {
             Node h = head;
             // 如果头节点不等于null并且头节点不等于尾节点
@@ -1467,6 +1467,7 @@ public abstract class AbstractQueuedSynchronizer
      *            and can represent anything you like.
      */
     public final void acquireShared(int arg) {
+        //负数为失败；0表示在共享锁模式下获取锁成功，但是不需要后继节点获取共享锁；正数为共享锁获取成功并且需要传播。
         if (tryAcquireShared(arg) < 0)
             doAcquireShared(arg);
     }
@@ -1527,7 +1528,9 @@ public abstract class AbstractQueuedSynchronizer
      * @return the value returned from {@link #tryReleaseShared}
      */
     public final boolean releaseShared(int arg) {
+        // 由用户自行实现释放锁条件
         if (tryReleaseShared(arg)) {
+            //
             doReleaseShared();
             return true;
         }
