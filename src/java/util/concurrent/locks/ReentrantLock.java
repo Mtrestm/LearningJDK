@@ -246,6 +246,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             final Thread current = Thread.currentThread();
             int c = getState();
             if (c == 0) {
+                //判断同步队列是否存在节点
                 if (!hasQueuedPredecessors() &&
                     compareAndSetState(0, acquires)) {
                     setExclusiveOwnerThread(current);
@@ -298,6 +299,17 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * at which time the lock hold count is set to one.
      */
     //加锁操作
+
+    /**
+     * 获得锁.
+     *  *
+     *  * 如果锁没有被另一个线程保持并且立即返回，则将锁定计数设置为1
+     *  *
+     *  * 如果当前线程已经保持锁定，则保持计数增加1，该方法立即返回
+     *  *
+     *  * 如果锁被另一个线程保持，则为了进行线程调度将当前线程禁用，
+     *  * 并且在锁定被获取之前处于休眠状态，此时锁定保持计数被设置为1
+     */
     public void lock() {
         sync.lock();
     }
@@ -347,6 +359,29 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * interrupt over normal or reentrant acquisition of the lock.
      *
      * @throws InterruptedException if the current thread is interrupted
+     */
+    /**
+     * 获取锁定，除非当前的线程被中断
+     *
+     * 如果锁没有被另一个线程保持并且立即返回，则将锁定计数设置为1
+     *
+     * 如果当前线程已经保存此锁，则保持计数增加1，该方法立即返回
+     *
+     * 如果锁被另一个线程保持，则当前线程将被禁用以进行线程调度，并且休眠，
+     * 直到发生两件事情之一:
+     *     1. 当前线程获取锁
+     *     2. 一些其他线程中断当前线程
+     *
+     * 如果当前线程获取锁定，则锁定保持计数设置为1。
+     *
+     * 如果当前的线程：
+     *     1. 在进入此方法时设置了中断状态
+     *     2. 在获取锁时中断
+     * 则抛出InterruptedException并清除当前线程的中断状态
+     *
+     * 在该实现中，由于该方法是明确的中断点，所以优先考虑响应中断超过正常或可重入的锁定
+     *
+     * @throws InterruptedException 如果当前线程中断
      */
     public void lockInterruptibly() throws InterruptedException {
         sync.acquireInterruptibly(1);
@@ -514,6 +549,17 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      *
      * @return the Condition object
      */
+    /**
+     * 返回一个与此Lock实例一起使用的Condition实例.
+     *
+     * Condition将Object监视器方法（wait、notify 和 notifyAll）分解成截然不同的对象，
+     * 以便通过将这些对象与任意Lock实现组合使用，为每个对象提供多个等待 set（wait-set）。
+     * 其中，Lock替代了synchronized方法和语句的使用，
+     * Condition替代了Object监视器方法的使用。
+     *
+     *
+     * @return Condition实例
+     */
     public Condition newCondition() {
         return sync.newCondition();
     }
@@ -659,6 +705,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * @return {@code true} if the given thread is queued waiting for this lock
      * @throws NullPointerException if the thread is null
      */
+    //查询给定的线程是否等待获取此锁
     public final boolean hasQueuedThread(Thread thread) {
         return sync.isQueued(thread);
     }
@@ -688,6 +735,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      *
      * @return the collection of threads
      */
+    //返回一个包含可能正在等待获取此锁的线程的集合
     protected Collection<Thread> getQueuedThreads() {
         return sync.getQueuedThreads();
     }
@@ -707,6 +755,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      *         not associated with this lock
      * @throws NullPointerException if the condition is null
      */
+    //查询是否有任何线程正在等待与此锁相关联的给定condition
     public boolean hasWaiters(Condition condition) {
         if (condition == null)
             throw new NullPointerException();
@@ -730,6 +779,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      *         not associated with this lock
      * @throws NullPointerException if the condition is null
      */
+    //返回包含可能在与此锁相关联的给定condition下等待的线程的集合
     public int getWaitQueueLength(Condition condition) {
         if (condition == null)
             throw new NullPointerException();
