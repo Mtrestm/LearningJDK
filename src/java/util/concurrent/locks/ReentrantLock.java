@@ -205,7 +205,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          * Performs lock.  Try immediate barge, backing up to normal
          * acquire on failure.
          */
-        //加锁(因为可以执行 acquire,这个方法一定会获取锁)
+        //加锁
         final void lock() {
             //执行CAS操作，本质就是CAS更新state：判断state是否为0，如果为0则把0更新为1，并返回true否则返回false
             if (compareAndSetState(0, 1))
@@ -213,6 +213,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
                 setExclusiveOwnerThread(Thread.currentThread());
             else
                 //否则再次请求同步状态(尝试获取独占锁)
+                //这里传入参数arg是要设置state的值，因为要获取锁，而status为0时是释放锁，1则是获取锁，所以这里一般传递参数为1
                 acquire(1);
         }
 
@@ -228,6 +229,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
         private static final long serialVersionUID = -3000897897090466540L;
 
         final void lock() {
+            //acquire()方法，尝试获取锁,失败后,将节点添加到同步队列后，结点就会进入一个自旋过程，即每个结点都在观察时机待条件满足获取同步状态,自旋过程是在acquireQueued(addWaiter(Node.EXCLUSIVE), arg))方法中执行的
             acquire(1);
         }
 
