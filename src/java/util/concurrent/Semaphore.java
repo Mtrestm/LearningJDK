@@ -176,8 +176,11 @@ public class Semaphore implements java.io.Serializable {
 
         final int nonfairTryAcquireShared(int acquires) {
             for (;;) {
+                //现有有的信号量
                 int available = getState();
+                //这次获取之后还剩下的信号量
                 int remaining = available - acquires;
+                //remaining < 0，表是现有的信号量不够(想要获取的信号量>现有的信号量)。会进入doAcquireSharedInterruptibly，等待信号量，并被挂起，直到被唤醒。
                 if (remaining < 0 ||
                     compareAndSetState(available, remaining))
                     return remaining;
@@ -222,6 +225,7 @@ public class Semaphore implements java.io.Serializable {
         private static final long serialVersionUID = -2694183684443567898L;
 
         NonfairSync(int permits) {
+            //直接将传入permits值设置为AQS中的state的值
             super(permits);
         }
 
@@ -308,6 +312,7 @@ public class Semaphore implements java.io.Serializable {
      *
      * @throws InterruptedException if the current thread is interrupted
      */
+    //获取1个信号
     public void acquire() throws InterruptedException {
         sync.acquireSharedInterruptibly(1);
     }

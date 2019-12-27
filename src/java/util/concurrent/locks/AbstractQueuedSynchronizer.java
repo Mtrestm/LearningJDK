@@ -1110,6 +1110,7 @@ public abstract class AbstractQueuedSynchronizer
                     int r = tryAcquireShared(arg);
                     if (r >= 0) {
                         // 4. 获取 lock 成功, 设置新的 head, 并唤醒后继获取  readLock 的节点
+                    //对Semaphore的实现来说r是剩余的许可数量,即 剩余的许可数量作为propagate的值用来控制对后继结点的唤醒(相当于告诉后继节点,快醒一醒,我已经获取共享锁了,我现在是 head 节点了,还有许可,你再试一试能不能获取到共享锁,大家一起发财(获取共享资源))
                         setHeadAndPropagate(node, r);
                         p.next = null; // help GC
                         if (interrupted)// 5. 在获取 lock 时, 被中断过, 则自己再自我中断一下(外面的函数可能需要这个参数)
@@ -1145,22 +1146,33 @@ public abstract class AbstractQueuedSynchronizer
      */
     private void doAcquireSharedInterruptibly(int arg)
             throws InterruptedException {
+        //为当前线程创建共享节点，并将这个节点插入到同步队列中(即加入到等待信号量链表的末尾)
         final Node node = addWaiter(Node.SHARED);
         boolean failed = true;
         try {
+            //从循环中可以看出，当线程被唤醒，并不一定能获得信号量，而是继续通过tryAcquireShared方法去竞争获取，如果这时候正好有新的线程去获取信号量，有可能这个没有任何等待，刚刚来的新线程获取到信号量，这就是不公平策略的体现
             for (; ; ) {
+                //获取当前节点的前一个节点
+                //如果上一节点是CLH队列的表头，则"尝试获取共享锁"
                 final Node p = node.predecessor();
                 if (p == head) {
+                    //r>=0,(表示现有信号量>=要获取的信号量),妥妥的,恭喜获取到共享锁了
                     int r = tryAcquireShared(arg);
                     if (r >= 0) {
+                        //获取成功，需要将当前节点设置为AQS队列中的第一个节点
+                        //这是AQS的规则，队列的头节点表示正在获取锁的节点
                         setHeadAndPropagate(node, r);
                         p.next = null; // help GC
                         failed = false;
                         return;
                     }
                 }
+                // shouldParkAfterFailedAcquire检查是否需要将当前线程挂起
+                //parkAndCheckInterrupt挂起当前线程，并返回线程是否被中断
+                //如果当前线程被中断，抛出中断异常，退出循环
                 if (shouldParkAfterFailedAcquire(p, node) &&
                         parkAndCheckInterrupt())
+                    //和非中断版本的获取共享锁方法相比,处理中断的方式不同,这里就是果断响应终端
                     throw new InterruptedException();
             }
         } finally {
@@ -1491,9 +1503,13 @@ public abstract class AbstractQueuedSynchronizer
      */
     public final void acquireSharedInterruptibly(int arg)
             throws InterruptedException {
+        //1.响应中断请求
         if (Thread.interrupted())
             throw new InterruptedException();
+        //tryAcquireShared(arg) < 0,说明现有的信号量不够,会进入doAcquireSharedInterruptibly，等待信号量，并被挂起，直到被唤醒。
+        //>=0,(表示现有信号量>=要获取的信号量),妥妥的,恭喜获取到共享锁了
         if (tryAcquireShared(arg) < 0)
+            //调用AQS 获取共享锁(可中断)的方法
             doAcquireSharedInterruptibly(arg);
     }
 
