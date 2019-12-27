@@ -1549,7 +1549,7 @@ public abstract class AbstractQueuedSynchronizer
     public final boolean releaseShared(int arg) {
         // 由用户自行实现释放锁条件
         if (tryReleaseShared(arg)) {
-            //
+            //释放信号量之后,调用doReleaseShared方法，唤醒队列中等待的线程
             doReleaseShared();
             return true;
         }

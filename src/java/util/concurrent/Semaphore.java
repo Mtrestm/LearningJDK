@@ -187,9 +187,12 @@ public class Semaphore implements java.io.Serializable {
             }
         }
 
+        //其实就是释放信号量，以及唤醒等待线程两个主要流程
         protected final boolean tryReleaseShared(int releases) {
             for (;;) {
+                //当前信号量
                 int current = getState();
+                //释放后的信号量
                 int next = current + releases;
                 if (next < current) // overflow
                     throw new Error("Maximum permit count exceeded");
@@ -244,6 +247,7 @@ public class Semaphore implements java.io.Serializable {
             super(permits);
         }
 
+        //非公平和公平信号量，主要是tryAcquireShared方法不一样，公平信号量在每次线程尝试获取的时候，都会判断head.next节点(第一个阻塞等待的节点)是不是为当前线程的节点，如果不是就返回-1，插入到链表的尾节点，等待被唤醒，是的话才会去竞争获取信号量，这样就能保证获取信号量的顺序和加入到阻塞链表的顺序保持一致
         protected int tryAcquireShared(int acquires) {
             for (;;) {
                 if (hasQueuedPredecessors())
