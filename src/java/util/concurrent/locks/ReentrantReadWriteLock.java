@@ -216,16 +216,20 @@ public class ReentrantReadWriteLock
         implements ReadWriteLock, java.io.Serializable {
     private static final long serialVersionUID = -6992448646407690164L;
     /** Inner class providing readlock */
+    //ReadLock是ReentrantReadWriteLock中的静态内部类，它是读取锁的实现
     private final ReentrantReadWriteLock.ReadLock readerLock;
     /** Inner class providing writelock */
+    //WriteLock是ReentrantReadWriteLock中的静态内部类，它是写入锁的实现
     private final ReentrantReadWriteLock.WriteLock writerLock;
     /** Performs all synchronization mechanics */
+    //Sync是ReentrantReadWriteLock中的静态内部类，它继承了AQS
     final Sync sync;
 
     /**
      * Creates a new {@code ReentrantReadWriteLock} with
      * default (nonfair) ordering properties.
      */
+    //默认使用非公平策略创建对象
     public ReentrantReadWriteLock() {
         this(false);
     }
@@ -236,7 +240,9 @@ public class ReentrantReadWriteLock
      *
      * @param fair {@code true} if this lock should use a fair ordering policy
      */
+    //将ReentrantReadWriteLock中三个内部类引用实例化
     public ReentrantReadWriteLock(boolean fair) {
+    //FairSync和NonfairSync都继承自Sync，它们主要提供了对读写是否需要被阻塞的检查方法
         sync = fair ? new FairSync() : new NonfairSync();
         readerLock = new ReadLock(this);
         writerLock = new WriteLock(this);
@@ -258,21 +264,31 @@ public class ReentrantReadWriteLock
          * The lower one representing the exclusive (writer) lock hold count,
          * and the upper the shared (reader) hold count.
          */
-
+        // 读锁同步状态占用的位数
         static final int SHARED_SHIFT   = 16;
+        // 这个是读锁的原始累加值（也就是说每次获取读锁都是获取状态state，然后用state加它），是2^16
+        // 每次增加读锁同步状态，就相当于增加SHARED_UNIT(举个例子，假设现在state为1，那么现在来获取读锁就是1+SHARED_UNIT)
+        //SHARED_UNIT = 65536(1 0000 0000 0000 0000)
         static final int SHARED_UNIT    = (1 << SHARED_SHIFT);
+        // 读锁和写锁的最大数量，都是2^16 - 1==>MAX_COUNT = 65535(1111 1111 1111 1111)
         static final int MAX_COUNT      = (1 << SHARED_SHIFT) - 1;
+        // 写锁的掩码，其实就是2^16 - 1，这个数的二进制很特殊，16位全是1 ==>65535(1111 1111 1111 1111)
         static final int EXCLUSIVE_MASK = (1 << SHARED_SHIFT) - 1;
 
         /** Returns the number of shared holds represented in count  */
+        // 读锁的数量
         static int sharedCount(int c)    { return c >>> SHARED_SHIFT; }
         /** Returns the number of exclusive holds represented in count  */
+        // 写锁的数量
         static int exclusiveCount(int c) { return c & EXCLUSIVE_MASK; }
 
         /**
          * A counter for per-thread read hold counts.
          * Maintained as a ThreadLocal; cached in cachedHoldCounter
          */
+        // 记录每个线程获取读锁的数量
+        // count是数量
+        // tid是线程的唯一标识
         static final class HoldCounter {
             int count = 0;
             // Use id, not reference, to avoid garbage retention
@@ -283,8 +299,11 @@ public class ReentrantReadWriteLock
          * ThreadLocal subclass. Easiest to explicitly define for sake
          * of deserialization mechanics.
          */
+        // 继承ThreadLocal，主要用来存储HoldCounter
+        //通过ThreadLocal维护每个线程的HoldCounter
         static final class ThreadLocalHoldCounter
             extends ThreadLocal<HoldCounter> {
+            //这里重写了ThreadLocal的initialValue方法
             public HoldCounter initialValue() {
                 return new HoldCounter();
             }
@@ -295,6 +314,8 @@ public class ReentrantReadWriteLock
          * Initialized only in constructor and readObject.
          * Removed whenever a thread's read hold count drops to 0.
          */
+        //当前线程持有的可重入读取锁的数量，仅在构造方法和readObject方法中被初始化
+        //当持有锁的数量为0时，移除此对象
         private transient ThreadLocalHoldCounter readHolds;
 
         /**
@@ -311,6 +332,8 @@ public class ReentrantReadWriteLock
          * <p>Accessed via a benign data race; relies on the memory
          * model's final field and out-of-thin-air guarantees.
          */
+        //成功获取读锁的最近一个线程的计数
+        // 可以理解为最后一个获取读锁的线程（用于优化性能，不需要去ThreadLocal查找）
         private transient HoldCounter cachedHoldCounter;
 
         /**
@@ -331,10 +354,14 @@ public class ReentrantReadWriteLock
          * <p>This allows tracking of read holds for uncontended read
          * locks to be very cheap.
          */
+        // 第一个获取读锁的线程，作用是如果是第一个，不走ThreadLocal
         private transient Thread firstReader = null;
+        // 第一个获取读锁的数量，作用是如果是第一个，不走ThreadLocal
         private transient int firstReaderHoldCount;
 
+        //Sync继承自AQS，Sync使用AQS中的state属性来代表锁的状态，这个state二进制值被设计成32位，其中高16位用作读取锁，低16位用作写入锁。所以，如果要计算持有读取锁的线程数，只要将state二进制值无符号右移动16位；如果要计算写入锁的重入次数，只要将state二进制值和1111111111111111做&运算。
         Sync() {
+            //构建每个线程的HoldCounter
             readHolds = new ThreadLocalHoldCounter();
             setState(getState()); // ensures visibility of readHolds
         }
