@@ -415,7 +415,7 @@ public class ReentrantReadWriteLock
             setState(nextc);
             return free;
         }
-
+        //ReentrantReadWriteLock中继承 AQS 的Sync类自定义重写的 tryAcquire 方法
         protected final boolean tryAcquire(int acquires) {
             /*
              * Walkthrough:
@@ -428,22 +428,35 @@ public class ReentrantReadWriteLock
              *    queue policy allows it. If so, update state
              *    and set owner.
              */
+            // 获取当前线程
             Thread current = Thread.currentThread();
+            // 获取当前锁的状态
             int c = getState();
+            // 获取写锁的数量，c & （2的16次方-1）
+            // 2的16次方-1 其实就是65535，变成二进制就是16个1
             int w = exclusiveCount(c);
+            // c不等于0，证明有线程获取锁了，不管是读锁或者写锁
             if (c != 0) {
                 // (Note: if c != 0 and w == 0 then shared count != 0)
+                // w == 0，说明有读锁了，w!= 0证明有写锁
+                // current != getExclusiveOwnerThread()说明有写锁了，不是自己
                 if (w == 0 || current != getExclusiveOwnerThread())
                     return false;
+                // 证明了是自己获取了写锁，如果大于锁的最大数量，抛异常
                 if (w + exclusiveCount(acquires) > MAX_COUNT)
                     throw new Error("Maximum lock count exceeded");
                 // Reentrant acquire
+                // 走到这里,说明没有超出限制，可以重入
                 setState(c + acquires);
                 return true;
             }
+            // 走到这一步，证明还没有线程获取锁
+            // writerShouldBlock 现在公平还是非公平，由FairSync和NonfairSync实现这个方法
             if (writerShouldBlock() ||
+                    // cas设置锁的状态
                 !compareAndSetState(c, c + acquires))
                 return false;
+            // 设置当前线程为拥有锁的线程
             setExclusiveOwnerThread(current);
             return true;
         }
@@ -957,6 +970,7 @@ public class ReentrantReadWriteLock
          * @param lock the outer lock object
          * @throws NullPointerException if the lock is null
          */
+        //这里传入的就是宿主类ReentrantReadWriteLock持有的Sync引用,因为静态内部类不持有外部类引用,所以以参数方式传入
         protected WriteLock(ReentrantReadWriteLock lock) {
             sync = lock.sync;
         }
