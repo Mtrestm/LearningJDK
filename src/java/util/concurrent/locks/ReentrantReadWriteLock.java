@@ -264,15 +264,27 @@ public class ReentrantReadWriteLock
          * The lower one representing the exclusive (writer) lock hold count,
          * and the upper the shared (reader) hold count.
          */
+        /**
+         * ReentrantReadWriteLock 这里使用 AQS里面的 state的高低16位来记录 read /write 获取的次数(PS: writeLock 是排他的 exclusive, readLock 是共享的 sahred, )
+         * 记录的操作都是通过 CAS 操作(有竞争发生)
+         *
+         *  特点:
+         *      1) 同一个线程可以拥有 writeLock 与 readLock (但必须先获取 writeLock 再获取 readLock, 反过来进行获取会导致死锁)
+         *      2) writeLock 与 readLock 是互斥的(就像 Mysql 的 X S 锁)
+         *      3) 在因 先获取 readLock 然后再进行获取 writeLock 而导致 死锁时, 本线程一直卡住在对应获取 writeLock 的代码上(因为 readLock 与 writeLock 是互斥的, 在获取 writeLock 时监测到现在有线程获取 readLock , 锁一会一直在 aqs 的 sync queue 里面进行等待), 而此时
+         *          其他的线程想获取 writeLock 也会一直 block, 而若获取 readLock 若这个线程以前获取过 readLock, 则还能继续 重入 (reentrant), 而没有获取 readLock 的线程因为 aqs syn queue 里面有获取 writeLock 的 Node 节点存在会存放在 aqs syn queue 队列里面 一直 block
+         */
+        //Sync继承自AQS，Sync使用AQS中的state属性来代表锁的状态，这个state二进制值被设计成32位，其中高16位用作读取锁，低16位用作写入锁。所以，如果要计算持有读取锁的线程数，只要将state二进制值无符号右移动16位；如果要计算写入锁的重入次数，只要将state二进制值和1111111111111111做&运算。
+        /** 对 32 位的 int 进行分割 (对半 16) */
         // 读锁同步状态占用的位数
         static final int SHARED_SHIFT   = 16;
         // 这个是读锁的原始累加值（也就是说每次获取读锁都是获取状态state，然后用state加它），是2^16
         // 每次增加读锁同步状态，就相当于增加SHARED_UNIT(举个例子，假设现在state为1，那么现在来获取读锁就是1+SHARED_UNIT)
-        //SHARED_UNIT = 65536(1 0000 0000 0000 0000)
+        //SHARED_UNIT = 65536(000000000 00000001 00000000 00000000)
         static final int SHARED_UNIT    = (1 << SHARED_SHIFT);
-        // 读锁和写锁的最大数量，都是2^16 - 1==>MAX_COUNT = 65535(1111 1111 1111 1111)
+        // 读锁和写锁的最大数量，都是2^16 - 1==>MAX_COUNT = 65535(000000000 00000000 11111111 11111111)
         static final int MAX_COUNT      = (1 << SHARED_SHIFT) - 1;
-        // 写锁的掩码，其实就是2^16 - 1，这个数的二进制很特殊，16位全是1 ==>65535(1111 1111 1111 1111)
+        // 写锁的掩码，其实就是2^16 - 1，这个数的二进制很特殊，16位全是1 ==>65535(000000000 00000000 11111111 11111111)
         static final int EXCLUSIVE_MASK = (1 << SHARED_SHIFT) - 1;
 
         /** Returns the number of shared holds represented in count  */
