@@ -169,17 +169,23 @@ public class CountDownLatch {
             return getState();
         }
 
+        //如果当前内部计数器等于零返回1，否则返回-1；
+        //内部计数器等于零表示可以获取共享锁，否则不可以；
         protected int tryAcquireShared(int acquires) {
             return (getState() == 0) ? 1 : -1;
         }
 
+        //内部计数器减一，如果计数达到零，唤醒所有等待的线程。
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
             for (;;) {
+                //获取内部计数器状态值
                 int c = getState();
                 if (c == 0)
                     return false;
+                //计数器减一
                 int nextc = c-1;
+                //使用CAS修改state值
                 if (compareAndSetState(c, nextc))
                     return nextc == 0;
             }

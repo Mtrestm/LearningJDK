@@ -94,9 +94,11 @@ public class CopyOnWriteArrayList<E>
     private static final long serialVersionUID = 8673264195747942595L;
 
     /** The lock protecting all mutators */
+    /** 用于修改时加锁 */
     final transient ReentrantLock lock = new ReentrantLock();
 
     /** The array, accessed only via getArray/setArray. */
+    /** 真正存储元素的地方，只能通过getArray()/setArray()访问 */
     private transient volatile Object[] array;
 
     /**
@@ -118,6 +120,7 @@ public class CopyOnWriteArrayList<E>
      * Creates an empty list.
      */
     public CopyOnWriteArrayList() {
+        // 所有对array的操作都是通过setArray()和getArray()进行
         setArray(new Object[0]);
     }
 
@@ -131,14 +134,18 @@ public class CopyOnWriteArrayList<E>
      */
     public CopyOnWriteArrayList(Collection<? extends E> c) {
         Object[] elements;
+        // 如果传入的集合c也是CopyOnWriteArrayList类型
+        // 那么直接把它的数组拿过来使用(注意这里是浅拷贝，两个集合共用同一个数组。)
         if (c.getClass() == CopyOnWriteArrayList.class)
             elements = ((CopyOnWriteArrayList<?>)c).getArray();
         else {
+            // 否则调用其toArray()方法将集合元素转化为数组
             elements = c.toArray();
             // c.toArray might (incorrectly) not return Object[] (see 6260652)
             if (elements.getClass() != Object[].class)
                 elements = Arrays.copyOf(elements, elements.length, Object[].class);
         }
+        //更新变量array的值
         setArray(elements);
     }
 
@@ -433,16 +440,19 @@ public class CopyOnWriteArrayList<E>
      */
     public boolean add(E e) {
         final ReentrantLock lock = this.lock;
-        lock.lock();
+        lock.lock(); //上锁
         try {
-            Object[] elements = getArray();
+            Object[] elements = getArray();//获取当前数组
             int len = elements.length;
+            //每增加一个新元素，都要进行一次数组的复制消耗，所以是一种空间换时间的策略
             Object[] newElements = Arrays.copyOf(elements, len + 1);
+            //将新元素置于新数组的末尾
             newElements[len] = e;
+            //将newElements设置为全局array
             setArray(newElements);
             return true;
         } finally {
-            lock.unlock();
+            lock.unlock();//释放锁
         }
     }
 
