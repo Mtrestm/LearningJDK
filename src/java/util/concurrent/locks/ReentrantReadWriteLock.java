@@ -557,13 +557,17 @@ public class ReentrantReadWriteLock
                         // 获取当前线程对应的计数器
                         cachedHoldCounter = rh = readHolds.get();
                     else if (rh.count == 0)//获取缓存计数器不为空,但是计数为0
-                        //加入到 readHolds 中
+                        //将当前线程持有读取锁的次数信息，放入线程本地变量中
                         readHolds.set(rh);
                     //计数+1
                     rh.count++;
                 }
                 return 1;
             }
+            // 执行fullTryAcquireShared方法有几种情况了
+            // 1.获取锁的下一个节点还是写锁，需要等待
+            // 2.到达获取锁的最大数量
+            // 3.可能存在多线程进程来设置读锁，cas失败了
             return fullTryAcquireShared(current);
         }
 
@@ -571,6 +575,7 @@ public class ReentrantReadWriteLock
          * Full version of acquire for reads, that handles CAS misses
          * and reentrant reads not dealt with in tryAcquireShared.
          */
+        //如果 CAS 失败或者已经获取读锁的线程再次获取读锁，是依靠 fullTryAcquireShared() 方法实现。
         final int fullTryAcquireShared(Thread current) {
             /*
              * This code is in part redundant with that in
@@ -579,27 +584,41 @@ public class ReentrantReadWriteLock
              * retries and lazily reading hold counts.
              */
             HoldCounter rh = null;
+            //自旋
             for (;;) {
+                //当前锁状态值
                 int c = getState();
+                //如果写入锁被线程持有
                 if (exclusiveCount(c) != 0) {
-                    if (getExclusiveOwnerThread() != current)
+                    //并且写入锁的持有者不是当前线程，则返回-1，获取锁失败
+                    if (getExclusiveOwnerThread() != current)// 写锁不是自己
                         return -1;
                     // else we hold the exclusive lock; blocking here
                     // would cause deadlock.
+                 // 到下面这个else if证明没有写锁
+                 // readerShouldBlock 由FairSync和NonfairSync实现公平和非公平原则
+                 // FairSync 判断是否前面有排队节点
+                 // NonfairSync排队节点是否有写节点
+                // 如果当前线程应该被阻塞
                 } else if (readerShouldBlock()) {
+                    // 到这一步证明了，是公平锁或者非公平锁的头结点.next是写锁, 此线程需要进入同步队列了,下面就是判断这个线程有没有获取过锁
+                    // 第一个获取锁的是当前线程，证明可以重入
                     // Make sure we're not acquiring read lock reentrantly
-                    if (firstReader == current) {
+                    if (firstReader == current) {// 当前线程为第一个读线程
                         // assert firstReaderHoldCount > 0;
                     } else {
-                        if (rh == null) {
-                            rh = cachedHoldCounter;
+                        // 进去这里说明，firstReader不是当前线程，那就说明获取读锁的不止一个了，因为firstReader不可能为null
+                        // 获取最后一个获取读锁的HoldCounter
+                        if (rh == null) {// rh == null 只会是第一次循环
+                            rh = cachedHoldCounter;  // 获取缓存的HoldCounter
                             if (rh == null || rh.tid != getThreadId(current)) {
+                                // 从 ThreadLocal 中取出计数器，如果没有就会重新创建并设置
                                 rh = readHolds.get();
-                                if (rh.count == 0)
-                                    readHolds.remove();
+                                if (rh.count == 0)// 那就证明没有获取到读读锁
+                                    readHolds.remove();// 删除这个
                             }
                         }
-                        if (rh.count == 0)
+                        if (rh.count == 0)// 这个是上面刚刚创建的证明获取锁失败了，需要进入队列
                             return -1;
                     }
                 }
