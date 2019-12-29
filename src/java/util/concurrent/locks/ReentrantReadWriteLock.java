@@ -389,6 +389,7 @@ public class ReentrantReadWriteLock
          * the read lock, and otherwise eligible to do so, should block
          * because of policy for overtaking other waiting threads.
          */
+        //当线程进行获取 readLock 时的策略(这个策略依赖于 aqs 中 sync queue 里面的Node存在的情况来定)
         abstract boolean readerShouldBlock();
 
         /**
@@ -396,6 +397,7 @@ public class ReentrantReadWriteLock
          * the write lock, and otherwise eligible to do so, should block
          * because of policy for overtaking other waiting threads.
          */
+        //当线程进行获取 readLock 时的策略(这个策略依赖于 aqs 中 sync queue 里面的Node存在的情况来定)
         abstract boolean writerShouldBlock();
 
         /*
@@ -404,14 +406,21 @@ public class ReentrantReadWriteLock
          * both read and write holds that are all released during a
          * condition wait and re-established in tryAcquire.
          */
+        //这个方法主要用于独占锁释放时操作 AQS里面的state状态
 
+ // 在进行 release 锁 时, 调用子类的方法 tryRelease(主要是增对 aqs 的 state 的一下赋值操作) (PS: 这个操作只有exclusive的lock才会调用到)
         protected final boolean tryRelease(int releases) {
+            // 1 监测当前的线程进行释放锁的线程是否是获取独占锁的线程
             if (!isHeldExclusively())
                 throw new IllegalMonitorStateException();
+            // 2. 进行 state 的释放操作
             int nextc = getState() - releases;
+            // 3. 判断 exclusive lock 是否释放完(因为这里支持 lock 的 reentrant)
             boolean free = exclusiveCount(nextc) == 0;
+            // 4. 锁释放掉后 清除掉 独占锁 exclusiveOwnerThread 的标志
             if (free)
                 setExclusiveOwnerThread(null);
+            // 5. 直接修改 state 的值 (PS: 这里没有竞争的出现, 因为调用 tryRelease方法的都是独占锁,此时已获取锁, 互斥, 所以没有 readLock 的获取, 相反 readLock 对 state 的修改就需要 CAS 操作)
             setState(nextc);
             return free;
         }
