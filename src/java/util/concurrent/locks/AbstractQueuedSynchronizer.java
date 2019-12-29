@@ -1484,6 +1484,7 @@ public abstract class AbstractQueuedSynchronizer
     public final void acquireShared(int arg) {
         //负数为失败；0表示在共享锁模式下获取锁成功，但是不需要后继节点获取共享锁；正数为共享锁获取成功并且需要传播。
         if (tryAcquireShared(arg) < 0)
+            //获取锁失败了，需要进入队列
             doAcquireShared(arg);
     }
 

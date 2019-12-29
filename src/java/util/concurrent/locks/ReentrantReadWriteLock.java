@@ -471,23 +471,34 @@ public class ReentrantReadWriteLock
         }
 
         protected final boolean tryReleaseShared(int unused) {
+            // 获取当前线程
             Thread current = Thread.currentThread();
+            // 如果第一个当前读锁拥有者是当前线程
             if (firstReader == current) {
                 // assert firstReaderHoldCount > 0;
+                // 读锁的数量为1，没有重入
                 if (firstReaderHoldCount == 1)
                     firstReader = null;
+                    // 重入了，修改数量
                 else
                     firstReaderHoldCount--;
-            } else {
+            } else { // 当前线程拥有该读锁,但已经不是一个拥有的
+                // 获取最后一个缓存
                 HoldCounter rh = cachedHoldCounter;
+                // 获取缓存HoldCounter
                 if (rh == null || rh.tid != getThreadId(current))
+                    // 最后一个缓存,缓存的不是当前线程的数据,不是就从 ThreadLocal 中获取
                     rh = readHolds.get();
+                // 获取当前线程持有该读锁的数量
                 int count = rh.count;
+                // 如果小于等于1
                 if (count <= 1) {
+                    // 删除这个线程的HoldCounter
                     readHolds.remove();
                     if (count <= 0)
                         throw unmatchedUnlockException();
                 }
+                // 当前线程持有该读锁的数量递减
                 --rh.count;
             }
             for (;;) {
@@ -564,7 +575,7 @@ public class ReentrantReadWriteLock
                 }
                 return 1;
             }
-            // 执行fullTryAcquireShared方法有几种情况了
+            // 执行fullTryAcquireShared方法处理三种情况
             // 1.获取锁的下一个节点还是写锁，需要等待
             // 2.到达获取锁的最大数量
             // 3.可能存在多线程进程来设置读锁，cas失败了
@@ -575,7 +586,6 @@ public class ReentrantReadWriteLock
          * Full version of acquire for reads, that handles CAS misses
          * and reentrant reads not dealt with in tryAcquireShared.
          */
-        //如果 CAS 失败或者已经获取读锁的线程再次获取读锁，是依靠 fullTryAcquireShared() 方法实现。
         final int fullTryAcquireShared(Thread current) {
             /*
              * This code is in part redundant with that in
@@ -618,12 +628,14 @@ public class ReentrantReadWriteLock
                                     readHolds.remove();// 删除这个
                             }
                         }
-                        if (rh.count == 0)// 这个是上面刚刚创建的证明获取锁失败了，需要进入队列
+                        if (rh.count == 0)// 这个是上面刚刚创建的,证明获取锁失败了，需要进入队列
                             return -1;
                     }
                 }
+                // 获取读锁的数量==MAX_COUNT，抛异常
                 if (sharedCount(c) == MAX_COUNT)
                     throw new Error("Maximum lock count exceeded");
+                // 使用cas设置读锁的状态，下面逻辑和tryAcquireShared的逻辑一样
                 if (compareAndSetState(c, c + SHARED_UNIT)) {
                     if (sharedCount(c) == 0) {
                         firstReader = current;
@@ -977,6 +989,7 @@ public class ReentrantReadWriteLock
          * <p>If the number of readers is now zero then the lock
          * is made available for write lock attempts.
          */
+        //读锁的释放
         public void unlock() {
             sync.releaseShared(1);
         }
