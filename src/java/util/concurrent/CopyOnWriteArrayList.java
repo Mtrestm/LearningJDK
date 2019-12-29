@@ -410,19 +410,25 @@ public class CopyOnWriteArrayList<E>
      *
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
+    //数组 array 指定位置 index 用元素 element 进行替代
     public E set(int index, E element) {
+        //0. 获取全局的 ReentrantLock
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
             Object[] elements = getArray();
+            //1. 获取数组指定下标 index 上的元素
             E oldValue = get(elements, index);
 
+            // 2. 判断 element 是否与来源数组中的元素一致
+            //2.1 不一致, 则获取原数组的 一个 snapshot, 并且将对应位置 index 进行替换
             if (oldValue != element) {
                 int len = elements.length;
                 Object[] newElements = Arrays.copyOf(elements, len);
                 newElements[index] = element;
                 setArray(newElements);
             } else {
+                //2.2 一致, setArray(elements) <- 这个其实是说明都没做
                 // Not quite a no-op; ensures volatile write semantics
                 setArray(elements);
             }
