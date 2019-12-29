@@ -506,6 +506,7 @@ public class ReentrantReadWriteLock
                 "attempt to unlock read lock, not locked by current thread");
         }
 
+        //自定义重写的 tryAcquireShared 方法，参数是 unused，因为读锁的重入计数是内部维护的。
         protected final int tryAcquireShared(int unused) {
             /*
              * Walkthrough:
@@ -522,26 +523,43 @@ public class ReentrantReadWriteLock
              *    apparently not eligible or CAS fails or count
              *    saturated, chain to version with full retry loop.
              */
+            // 获取当前线程
             Thread current = Thread.currentThread();
+            // 获取状态
             int c = getState();
+            //处理写锁的情况:如果写锁线程数 != 0 ，且独占锁不是当前线程则返回失败，因为存在锁降级。
             if (exclusiveCount(c) != 0 &&
                 getExclusiveOwnerThread() != current)
                 return -1;
+            // 读锁数量
             int r = sharedCount(c);
+            /*
+             * readerShouldBlock():读锁是否需要等待（公平锁原则）
+             * r < MAX_COUNT：持有线程小于最大数（65535）
+             * compareAndSetState(c, c + SHARED_UNIT)：设置读取锁状态
+             */
+            //处理读锁的情况: 读线程是否应该被阻塞、并且小于最大值、并且比较设置成功
             if (!readerShouldBlock() &&
                 r < MAX_COUNT &&
                 compareAndSetState(c, c + SHARED_UNIT)) {
+                //r == 0，表示第一个读锁线程，第一个读锁 firstRead 是不会加入到 readHolds 中。
                 if (r == 0) {
                     firstReader = current;
                     firstReaderHoldCount = 1;
-                } else if (firstReader == current) {
+                } else if (firstReader == current) {// 当前线程为第一个读线程，表示第一个读锁线程重入
+                    // 占用资源数加 1
                     firstReaderHoldCount++;
-                } else {
+                } else {// 读锁数量不为 0 并且不为当前线程
+                    // 获取缓存计数器
                     HoldCounter rh = cachedHoldCounter;
+                    // 获取缓存计数器为空或者计数器的 tid 不为当前正在运行的线程的 tid。
                     if (rh == null || rh.tid != getThreadId(current))
+                        // 获取当前线程对应的计数器
                         cachedHoldCounter = rh = readHolds.get();
-                    else if (rh.count == 0)
+                    else if (rh.count == 0)//获取缓存计数器不为空,但是计数为0
+                        //加入到 readHolds 中
                         readHolds.set(rh);
+                    //计数+1
                     rh.count++;
                 }
                 return 1;
@@ -784,6 +802,7 @@ public class ReentrantReadWriteLock
          * the current thread becomes disabled for thread scheduling
          * purposes and lies dormant until the read lock has been acquired.
          */
+        //读锁的获取
         public void lock() {
             sync.acquireShared(1);
         }
@@ -1189,6 +1208,7 @@ public class ReentrantReadWriteLock
          * @throws IllegalMonitorStateException if the current thread does not
          * hold this lock
          */
+        //写锁的释放
         public void unlock() {
             sync.release(1);
         }
