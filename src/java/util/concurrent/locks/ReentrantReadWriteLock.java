@@ -770,6 +770,7 @@ public class ReentrantReadWriteLock
         final boolean writerShouldBlock() {
             return hasQueuedPredecessors();
         }
+        //FairSync 中需要判断是否有前驱节点，如果有则返回 false，否则返回 true。遵循 FIFO。
         final boolean readerShouldBlock() {
             return hasQueuedPredecessors();
         }

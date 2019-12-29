@@ -1669,6 +1669,8 @@ public abstract class AbstractQueuedSynchronizer
      * is not the first queued thread.  Used only as a heuristic in
      * ReentrantReadWriteLock.
      */
+    //当 head 节点不为 null 且 head 节点的下一个节点 s 不为 null 且 s 是独占模式（写线程）且 s 的线程不为 null 时，返回 true。
+//目的是不应该让写锁始终等待。作为一个启发式方法用于避免可能的写线程饥饿，这只是一种概率性的作用，因为如果有一个等待的写线程在其他尚未从队列中出队的读线程后面等待，那么新的读线程将不会被阻塞。
     final boolean apparentlyFirstQueuedIsExclusive() {
         Node h, s;
         return (h = head) != null &&
