@@ -471,26 +471,39 @@ public class CopyOnWriteArrayList<E>
      */
     public void add(int index, E element) {
         final ReentrantLock lock = this.lock;
+        // 加锁
         lock.lock();
         try {
+            // 获取旧数组
             Object[] elements = getArray();
             int len = elements.length;
+            // 检查是否越界, 可以等于len
             if (index > len || index < 0)
                 throw new IndexOutOfBoundsException("Index: "+index+
                                                     ", Size: "+len);
+
             Object[] newElements;
             int numMoved = len - index;
             if (numMoved == 0)
+                // 如果插入的位置是最后一位
+                // 那么拷贝一个n+1的数组, 其前n个元素与旧数组一致
                 newElements = Arrays.copyOf(elements, len + 1);
             else {
+                // 如果插入的位置不是最后一位
+                // 那么新建一个n+1的数组
                 newElements = new Object[len + 1];
+                // 拷贝旧数组前index的元素到新数组中
                 System.arraycopy(elements, 0, newElements, 0, index);
+                // 将index及其之后的元素往后挪一位拷贝到新数组中
+                // 这样正好index位置是空出来的
                 System.arraycopy(elements, index, newElements, index + 1,
                                  numMoved);
             }
+            // 将新元素放置在index处
             newElements[index] = element;
             setArray(newElements);
         } finally {
+            // 释放锁
             lock.unlock();
         }
     }
