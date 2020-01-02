@@ -401,6 +401,9 @@ public class CopyOnWriteArrayList<E>
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
     public E get(int index) {
+        // 获取元素不需要加锁
+        // 直接返回index位置的元素
+        // 这里是没有做越界检查的, 因为数组本身会做越界检查
         return get(getArray(), index);
     }
 
@@ -516,24 +519,34 @@ public class CopyOnWriteArrayList<E>
      * @throws IndexOutOfBoundsException {@inheritDoc}
      */
     public E remove(int index) {
+
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
+            // 获取旧数组
             Object[] elements = getArray();
             int len = elements.length;
             E oldValue = get(elements, index);
             int numMoved = len - index - 1;
             if (numMoved == 0)
+                // 如果移除的是最后一位
+                // 那么直接拷贝一份n-1的新数组, 最后一位就自动删除了
                 setArray(Arrays.copyOf(elements, len - 1));
             else {
+                // 如果移除的不是最后一位
+                // 那么新建一个n-1的新数组
                 Object[] newElements = new Object[len - 1];
+                // 将前index的元素拷贝到新数组中
                 System.arraycopy(elements, 0, newElements, 0, index);
+                // 将index后面(不包含)的元素往前挪一位
+                // 这样正好把index位置覆盖掉了, 相当于删除了
                 System.arraycopy(elements, index + 1, newElements, index,
                                  numMoved);
                 setArray(newElements);
             }
             return oldValue;
         } finally {
+            // 释放锁
             lock.unlock();
         }
     }
@@ -638,8 +651,10 @@ public class CopyOnWriteArrayList<E>
      * @param e element to be added to this list, if absent
      * @return {@code true} if the element was added
      */
+    //若列表中没有待插入的元素，则进行插入操作
     public boolean addIfAbsent(E e) {
         Object[] snapshot = getArray();
+        //在原数组中查找待插入元素的位置index,若index >= 0，直接返回false;若index < 0，调用重载方法 addIfAbsent(E e, Object[] snapshot)
         return indexOf(e, snapshot, 0, snapshot.length) >= 0 ? false :
             addIfAbsent(e, snapshot);
     }
@@ -652,9 +667,9 @@ public class CopyOnWriteArrayList<E>
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
-            Object[] current = getArray();
-            int len = current.length;
-            if (snapshot != current) {
+            Object[] current = getArray();//获取当前数组
+            int len = current.length;//获取当前数组的长度
+            if (snapshot != current) {//期间数组发生了变化。即其他线程有操作了该集合
                 // Optimize for lost race to another addXXX operation
                 int common = Math.min(snapshot.length, len);
                 for (int i = 0; i < common; i++)
@@ -1156,7 +1171,8 @@ public class CopyOnWriteArrayList<E>
         return Spliterators.spliterator
             (getArray(), Spliterator.IMMUTABLE | Spliterator.ORDERED);
     }
-
+  //CopyOnWriteArrayList在使用迭代器遍历的时候，操作的都是原数组！
+  //可以发现的是，迭代器所有的操作都基于snapshot数组，而snapshot是传递进来的array数组
     static final class COWIterator<E> implements ListIterator<E> {
         /** Snapshot of the array */
         private final Object[] snapshot;
