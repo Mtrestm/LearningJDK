@@ -482,17 +482,15 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * because the top two bits of 32bit hash fields are used for
      * control purposes.
      */
-    // // 用于计算Segment数组中的每一个segment的HashEntry[]的最大容量（2的30次方）最大容量：2^30=1073741824
+    //最大容量
     private static final int MAXIMUM_CAPACITY = 1 << 30;
 
     /**
      * The default initial table capacity.  Must be a power of 2
      * (i.e., at least 1) and at most MAXIMUM_CAPACITY.
      */
-    /**
-     * 用于分段
-     */
-    // 根据这个数来计算segment的个数,segment的个数是仅小于这个数且是2的几次方的一个数（ssize）
+
+    //默认初始容量
     private static final int DEFAULT_CAPACITY = 16;
 
     /**
@@ -518,7 +516,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * simpler to use expressions such as {@code n - (n >>> 2)} for
      * the associated resizing threshold.
      */
-    // 默认的加载因子（用于resize）
+    // 默认的负载因子（用于resize）
     private static final float LOAD_FACTOR = 0.75f;
 
     /**
@@ -529,6 +527,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * tree removal about conversion back to plain bins upon
      * shrinkage.
      */
+    //链表转树的阈值，即链接结点数大于8时， 链表转换为树.
     static final int TREEIFY_THRESHOLD = 8;
 
     /**
@@ -536,6 +535,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * resize operation. Should be less than TREEIFY_THRESHOLD, and at
      * most 6 to mesh with shrinkage detection under removal.
      */
+    //树转链表的阈值，即树结点树小于6时，树转换为链表.
     static final int UNTREEIFY_THRESHOLD = 6;
 
     /**
@@ -543,6 +543,11 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * (Otherwise the table is resized if too many nodes in a bin.)
      * The value should be at least 4 * TREEIFY_THRESHOLD to avoid
      * conflicts between resizing and treeification thresholds.
+     */
+    /**
+     * 在链表转变成树之前，还会有一次判断：
+     * 即只有键值对数量大于MIN_TREEIFY_CAPACITY，才会发生转换。
+     * 这是为了避免在Table建立初期，多个键值对恰好被放入了同一个链表中而导致不必要的转化。
      */
     static final int MIN_TREEIFY_CAPACITY = 64;
 
@@ -553,18 +558,24 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * excessive memory contention.  The value should be at least
      * DEFAULT_CAPACITY.
      */
+    /**
+     * 在树转变成链表之前，还会有一次判断：
+     * 即只有键值对数量小于MIN_TRANSFER_STRIDE，才会发生转换.
+     */
     private static final int MIN_TRANSFER_STRIDE = 16;
 
     /**
      * The number of bits used for generation stamp in sizeCtl.
      * Must be at least 6 for 32bit arrays.
      */
+    //用于在扩容时生成唯一的随机数.
     private static int RESIZE_STAMP_BITS = 16;
 
     /**
      * The maximum number of threads that can help resize.
      * Must fit in 32 - RESIZE_STAMP_BITS bits.
      */
+    //可同时进行扩容操作的最大线程数.
     private static final int MAX_RESIZERS = (1 << (32 - RESIZE_STAMP_BITS)) - 1;
 
     /**
@@ -576,14 +587,18 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * Encodings for Node hash fields. See above for explanation.
      */
     //moved = -1 ，表示当前元素是forwardingNode已经被遍历过，不需要再进行数据调整
+    /** ForwardingNode 结点的 hash 值 */
     static final int MOVED = -1; // hash for forwarding nodes
+    /** 树根结点的 hash 值 */
     static final int TREEBIN = -2; // hash for roots of trees
+    /** ReservationNode 结点的 hash 值 */
     static final int RESERVED = -3; // hash for transient reservations
     static final int HASH_BITS = 0x7fffffff; // usable bits of normal node hash
 
     /**
      * Number of CPUS, to place bounds on some sizings
      */
+    //CPU核心数，扩容时使用
     static final int NCPU = Runtime.getRuntime().availableProcessors();
 
     /**
@@ -653,6 +668,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
          * Virtualized support for map.get(); overridden in subclasses.
          */
         //链表查找
+        // 主要在扩容时，利用多态查询已转移节点
         Node<K, V> find(int h, Object k) {
             Node<K, V> e = this;
             if (k != null) {
@@ -783,7 +799,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
     /**
      * The next table to use; non-null only while resizing.
      */
-    //nextTable：默认为null，扩容时新生成的数组，其大小为原数组的两倍。
+    //nextTable：默认为null，扩容时新生成的数组，其大小为原数组的两倍。(扩容后的新Node数组，只有在扩容时才非空.)
     private transient volatile Node<K, V>[] nextTable;
 
     /**
@@ -791,6 +807,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * but also as a fallback during table initialization
      * races. Updated via CAS.
      */
+    //计数基值,当没有线程竞争时，计数将加到该变量上。类似于LongAdder的base变量
     private transient volatile long baseCount;
 
     /**
@@ -820,14 +837,17 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
     /**
      * Spinlock (locked via CAS) used when resizing and/or creating CounterCells.
      */
+    //自旋标识位，用于CounterCell[]扩容时使用。类似于LongAdder的cellsBusy变量
     private transient volatile int cellsBusy;
 
     /**
      * Table of counter cells. When non-null, size is a power of 2.
      */
+    //计数数组，出现并发冲突时使用。类似于LongAdder的cells数组
     private transient volatile CounterCell[] counterCells;
 
     // views
+    // 视图相关字段
     private transient KeySetView<K, V> keySet;
     private transient ValuesView<K, V> values;
     private transient EntrySetView<K, V> entrySet;
@@ -2178,6 +2198,11 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
     /**
      * A node inserted at head of bins during transfer operations.
      */
+    /**
+     * ForwardingNode是一种临时结点，在扩容进行中才会出现，hash值固定为-1，且不存储实际数据。
+     * 如果旧table数组的一个hash桶中全部的结点都迁移到了新table中，则在这个桶中放置一个ForwardingNode。
+     * 读操作碰到ForwardingNode时，将操作转发到扩容后的新table数组上去执行；写操作碰见它时，则尝试帮助扩容。
+     */
     static final class ForwardingNode<K, V> extends Node<K, V> {
         final Node<K, V>[] nextTable;
 
@@ -2185,7 +2210,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
             super(MOVED, null, null, null);
             this.nextTable = tab;
         }
-
+        // 在新的数组nextTable上进行查找
         Node<K, V> find(int h, Object k) {
             // loop to avoid arbitrarily deep recursion on forwarding nodes
             outer:
@@ -2218,6 +2243,11 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
     /**
      * A place-holder node used in computeIfAbsent and compute
      */
+    /**
+     * 保留结点.
+     * hash值固定为-3， 不保存实际数据
+     * 只在computeIfAbsent和compute这两个函数式API中充当占位符加锁使用
+     */
     static final class ReservationNode<K, V> extends Node<K, V> {
         ReservationNode() {
             super(RESERVED, null, null, null);
@@ -2242,13 +2272,18 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * Initializes table, using the size recorded in sizeCtl.
      */
     private final Node<K, V>[] initTable() {
+        //1.创建临时变量tab、sc,tab表示Node数组,sc表示临时变量
         Node<K, V>[] tab;
         int sc;
         while ((tab = table) == null || tab.length == 0) {
+            //2.sizeCtl 是一个对象属性，使用了volatile关键字修饰保证并发的可见性，默认为 0，当第一次执行 put 操作时，通过Unsafe.compareAndSwapInt()方法，俗称CAS，将 sizeCtl修改为 -1，有且只有一个线程能够修改成功，接着执行 table 初始化任务。
+            //如果别的线程发现sizeCtl<0，意味着有另外的线程执行CAS操作成功，当前线程通过执行Thread.yield()让出 CPU 时间片等待 table 初始化完成。
             if ((sc = sizeCtl) < 0)
                 Thread.yield(); // lost initialization race; just spin
+            //3、通过CAS方法,将sizeCtl修改为-1,有且只有一个线程能够修改成功
             else if (U.compareAndSwapInt(this, SIZECTL, sc, -1)) {
                 try {
+                    //4、初始化Node数组
                     if ((tab = table) == null || tab.length == 0) {
                         int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
                         @SuppressWarnings("unchecked")
