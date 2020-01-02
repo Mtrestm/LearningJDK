@@ -1084,12 +1084,17 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
             //6.其余情况都是把新的Node节点按链表或红黑树的方式插入到合适的位置
             else {
                 V oldVal = null;
+                //7、采用同步内置锁实现并发控制
                 synchronized (f) {
+                    //7.1 节点插入之前,再次利用 tabA(tab,i)=f判断,防止被其它线程修改
                     if (tabAt(tab, i) == f) {
+                        //7.2 如果fh=f.hash>=0,说明f是链表结构的头结点
                         if (fh >= 0) {
+                            //7.3 遍历链表,如果找到对应的node节点,则修改 value;否则直接在链表尾部加入节点
                             binCount = 1;
                             for (Node<K, V> e = f; ; ++binCount) {
                                 K ek;
+                                //在链表中如果找到了与待插入的键值对的key相同的节点，就直接覆盖即可
                                 if (e.hash == hash &&
                                         ((ek = e.key) == key ||
                                                 (ek != null && key.equals(ek)))) {
@@ -1100,12 +1105,15 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
                                 }
                                 Node<K, V> pred = e;
                                 if ((e = e.next) == null) {
+                                    //如果到链表末尾仍未找到，则直接将新值插入到链表末尾即可
                                     pred.next = new Node<K, V>(hash, key,
                                             value, null);
                                     break;
                                 }
                             }
-                        } else if (f instanceof TreeBin) {
+                        }
+                        //7.4 如果f是 TreeBin类型节点,说明f是红黑树根节点,则在树结构上遍历元素,更新或增加节点
+                        else if (f instanceof TreeBin) {
                             Node<K, V> p;
                             binCount = 2;
                             if ((p = ((TreeBin<K, V>) f).putTreeVal(hash, key,
@@ -1117,6 +1125,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
                         }
                     }
                 }
+                //8.如果链表中节点数 binCount>= TREEIFY THRESHOLD(默认是8),则把链表转化为红黑树结构
                 if (binCount != 0) {
                     if (binCount >= TREEIFY_THRESHOLD)
                         treeifyBin(tab, i);
@@ -1126,6 +1135,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
                 }
             }
         }
+        //9.插入完成之后,扩容判断
         addCount(1L, binCount);
         return null;
     }
