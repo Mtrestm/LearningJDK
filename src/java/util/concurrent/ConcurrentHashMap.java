@@ -39,37 +39,11 @@ import java.io.ObjectStreamField;
 import java.io.Serializable;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.AbstractMap;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Comparator;
-import java.util.Enumeration;
-import java.util.HashMap;
-import java.util.Hashtable;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.NoSuchElementException;
-import java.util.Set;
-import java.util.Spliterator;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ForkJoinPool;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.BiConsumer;
-import java.util.function.BiFunction;
-import java.util.function.BinaryOperator;
-import java.util.function.Consumer;
-import java.util.function.DoubleBinaryOperator;
-import java.util.function.Function;
-import java.util.function.IntBinaryOperator;
-import java.util.function.LongBinaryOperator;
-import java.util.function.ToDoubleBiFunction;
-import java.util.function.ToDoubleFunction;
-import java.util.function.ToIntBiFunction;
-import java.util.function.ToIntFunction;
-import java.util.function.ToLongBiFunction;
-import java.util.function.ToLongFunction;
+import java.util.function.*;
 import java.util.stream.Stream;
 
 /**
@@ -508,12 +482,17 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * because the top two bits of 32bit hash fields are used for
      * control purposes.
      */
+    // // 用于计算Segment数组中的每一个segment的HashEntry[]的最大容量（2的30次方）最大容量：2^30=1073741824
     private static final int MAXIMUM_CAPACITY = 1 << 30;
 
     /**
      * The default initial table capacity.  Must be a power of 2
      * (i.e., at least 1) and at most MAXIMUM_CAPACITY.
      */
+    /**
+     * 用于分段
+     */
+    // 根据这个数来计算segment的个数,segment的个数是仅小于这个数且是2的几次方的一个数（ssize）
     private static final int DEFAULT_CAPACITY = 16;
 
     /**
@@ -526,6 +505,10 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * The default concurrency level for this table. Unused but
      * defined for compatibility with previous versions of this class.
      */
+    /**
+     * 用于HashEntry
+     */
+    // 默认的用于计算Segment数组中的每一个segment的HashEntry[]的容量，但是并不是每一个segment的HashEntry[]的容量
     private static final int DEFAULT_CONCURRENCY_LEVEL = 16;
 
     /**
@@ -535,6 +518,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * simpler to use expressions such as {@code n - (n >>> 2)} for
      * the associated resizing threshold.
      */
+    // 默认的加载因子（用于resize）
     private static final float LOAD_FACTOR = 0.75f;
 
     /**
@@ -591,6 +575,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     /*
      * Encodings for Node hash fields. See above for explanation.
      */
+    //moved = -1 ，表示当前元素是forwardingNode已经被遍历过，不需要再进行数据调整
     static final int MOVED     = -1; // hash for forwarding nodes
     static final int TREEBIN   = -2; // hash for roots of trees
     static final int RESERVED  = -3; // hash for transient reservations
@@ -619,8 +604,8 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
     static class Node<K,V> implements Map.Entry<K,V> {
         final int hash;
         final K key;
-        volatile V val;
-        volatile Node<K,V> next;
+        volatile V val;//给 val 添加了 volatile语义
+        volatile Node<K,V> next;// 链表指针(具有volatile语义)
 
         Node(int hash, K key, V val, Node<K,V> next) {
             this.hash = hash;
@@ -633,6 +618,8 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
         public final V getValue()     { return val; }
         public final int hashCode()   { return key.hashCode() ^ val.hashCode(); }
         public final String toString(){ return key + "=" + val; }
+
+        //不允许直接改变value的值
         public final V setValue(V value) {
             throw new UnsupportedOperationException();
         }
@@ -649,6 +636,7 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
         /**
          * Virtualized support for map.get(); overridden in subclasses.
          */
+        //链表查找
         Node<K,V> find(int h, Object k) {
             Node<K,V> e = this;
             if (k != null) {
@@ -770,11 +758,13 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * The array of bins. Lazily initialized upon first insertion.
      * Size is always a power of two. Accessed directly by iterators.
      */
+    //table：默认为null，初始化发生在第一次插入操作，默认大小为16的数组，用来存储Node节点数据，扩容时大小总是2的幂次方
     transient volatile Node<K,V>[] table;
 
     /**
      * The next table to use; non-null only while resizing.
      */
+    //nextTable：默认为null，扩容时新生成的数组，其大小为原数组的两倍。
     private transient volatile Node<K,V>[] nextTable;
 
     /**
@@ -792,6 +782,15 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * creation, or 0 for default. After initialization, holds the
      * next element count value upon which to resize the table.
      */
+    //默认为0，用来控制table的初始化和扩容操作，具体应用在后续会体现出来。
+    /**
+     * 负数代表正在进行初始化或扩容操作
+     * -1 代表table正在初始化
+     * -N 表示有N-1个线程正在进行扩容操作
+     * 其余情况(正数或0)：
+     * 1、0:表示table数组还没有进行初始化,如果table未初始化，表示table需要初始化的大小。
+     * 2、正数:如果table初始化完成，表示table的容量，默认是table大小的0.75倍，居然用这个公式算0.75（n - (n >>> 2)）。
+      */
     private transient volatile int sizeCtl;
 
     /**
@@ -2659,6 +2658,10 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
         TreeNode<K,V> parent;  // red-black tree links
         TreeNode<K,V> left;
         TreeNode<K,V> right;
+        /**
+         * prev指针是为了方便删除.
+         * 删除链表的非头结点时，需要知道它的前驱结点才能删除，所以直接提供一个prev指针
+         */
         TreeNode<K,V> prev;    // needed to unlink next upon deletion
         boolean red;
 
@@ -2715,15 +2718,20 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
      * forcing writers (who hold bin lock) to wait for readers (who do
      * not) to complete before tree restructuring operations.
      */
+    //TreeBin相当于TreeNode的代理结点。TreeBin会直接链接到table[i]——桶上面，该结点提供了一系列红黑树相关的操作，以及加锁、解锁操作。
+    /**
+     * TreeNode的代理结点（相当于封装了TreeNode的容器，提供针对红黑树的转换操作和锁控制）
+     * hash值固定为-3
+     */
     static final class TreeBin<K,V> extends Node<K,V> {
-        TreeNode<K,V> root;
-        volatile TreeNode<K,V> first;
-        volatile Thread waiter;
-        volatile int lockState;
+        TreeNode<K,V> root;  // 红黑树结构的根结点
+        volatile TreeNode<K,V> first;// 链表结构的头结点
+        volatile Thread waiter; // 最近的一个设置WAITER标识位的线程
+        volatile int lockState; // 整体的锁状态标识位
         // values for lockState
-        static final int WRITER = 1; // set while holding write lock
-        static final int WAITER = 2; // set when waiting for write lock
-        static final int READER = 4; // increment value for setting read lock
+        static final int WRITER = 1; // set while holding write lock // 二进制001，红黑树的写锁状态
+        static final int WAITER = 2; // set when waiting for write lock  // 二进制010，红黑树的等待获取写锁状态
+        static final int READER = 4; // increment value for setting read lock // 二进制100，红黑树的读锁状态，读可以并发，每多一个读线程，lockState都加上一个READER值
 
         /**
          * Tie-breaking utility for ordering insertions when equal
@@ -2731,6 +2739,9 @@ public class ConcurrentHashMap<K,V> extends AbstractMap<K,V>
          * order, just a consistent insertion rule to maintain
          * equivalence across rebalancings. Tie-breaking further than
          * necessary simplifies testing a bit.
+         */
+        /**
+         * 在hashCode相等并且不是Comparable类型时，用此方法判断大小.使用System.identityHashCode返回内存地址值
          */
         static int tieBreakOrder(Object a, Object b) {
             int d;
