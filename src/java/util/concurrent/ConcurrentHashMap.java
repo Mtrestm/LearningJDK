@@ -2340,9 +2340,13 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
      * @param x     the count to add
      * @param check if <0, don't check resize, if <= 1 only check if uncontended
      */
+    //在put方法结尾处调用了addCount方法，把当前ConcurrentHashMap的元素个数+1这个方法一共做了两件事,
+    // 1.更新baseCount的值 2.检测是否进行扩容。
     private final void addCount(long x, int check) {
+        //1.从 putval传入的参数是x=1、 check=0,只有hash冲突且它的结构是链表的结构时, check才会大于1
         CounterCell[] as;
         long b, s;
+        //2.利用CAS方法更新 baseCount的值
         if ((as = counterCells) != null ||
                 !U.compareAndSwapLong(this, BASECOUNT, b = baseCount, s = b + x)) {
             CounterCell a;
@@ -2360,20 +2364,32 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
                 return;
             s = sumCount();
         }
+        //3.检查是否需要扩容,默认 check=1,需要检查
         if (check >= 0) {
             Node<K, V>[] tab, nt;
             int n, sc;
+            //4.如果map.size()大于等于 sizectl(达到扩容阈值需要扩容)并且tabe不是空,同时 table的长度小于最大容量,可以扩容
             while (s >= (long) (sc = sizeCtl) && (tab = table) != null &&
                     (n = tab.length) < MAXIMUM_CAPACITY) {
+                //5.根据 Length得到一个标识
                 int rs = resizeStamp(n);
                 if (sc < 0) {
+                    //6、对 sizect参数值进行分析判断
+                    // 判断1:如果 sizectl无符号右移16不等于rs,则标识符变化了
+                    //判断2:如果 sizectl=rs+1,表示扩容结束了,不再有线程进行扩容
+                    //判断3:如果 sizectl=rs+65535,表示达到最大帮助线程的数量,即65535
+                    //判断4:如果转移下标 transferIndex<=0,表示扩容结束
+                    //满足任何一个判断,结束循环,返回 table
                     if ((sc >>> RESIZE_STAMP_SHIFT) != rs || sc == rs + 1 ||
                             sc == rs + MAX_RESIZERS || (nt = nextTable) == null ||
                             transferIndex <= 0)
                         break;
+                    //如果已经有其他线程在执行扩容操作
                     if (U.compareAndSwapInt(this, SIZECTL, sc, sc + 1))
                         transfer(tab, nt);
-                } else if (U.compareAndSwapInt(this, SIZECTL, sc,
+                }
+                //当前线程是唯一的或是第一个发起扩容的线程此时 netlAb1e=nu11
+                else if (U.compareAndSwapInt(this, SIZECTL, sc,
                         (rs << RESIZE_STAMP_SHIFT) + 2))
                     transfer(tab, null);
                 s = sumCount();
@@ -2399,7 +2415,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
             while (nextTab == nextTable && table == tab &&
                     (sc = sizeCtl) < 0) {
                 //4、对 sizect参数值进行分析判断
-                // 判断1:如果 sizes无符号右移16不等于rs,则标识符变化了
+                // 判断1:如果 sizectl无符号右移16不等于rs,则标识符变化了
                 //判断2:如果 sizectl=rs+1,表示扩容结束了,不再有线程进行扩容
                 //判断3:如果 sizectl=rs+65535,表示达到最大帮助线程的数量,即65535
                 //判断4:如果转移下标 transferIndex<=0,表示扩容结束
