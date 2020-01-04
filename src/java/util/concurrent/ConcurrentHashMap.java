@@ -2384,19 +2384,32 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V>
     /**
      * Helps transfer if a resize is in progress.
      */
+   //除了addCount会在检查是否需要扩容的时候触发transfer方法，当putVal方法添加的键值对映射到对应的桶中节点类型为ForwardingNode时，也会触发扩容
     //正在扩容的时候，先帮助扩容
     final Node<K, V>[] helpTransfer(Node<K, V>[] tab, Node<K, V> f) {
         Node<K, V>[] nextTab;
         int sc;
+        //1.如果 table不为空且node节点是转移类型,同时node节点的 nextTable(新 table)不为空,进行数据校验
         if (tab != null && (f instanceof ForwardingNode) &&
                 (nextTab = ((ForwardingNode<K, V>) f).nextTable) != null) {
+            //2.满足以上条件之后,尝试帮助扩容
+            //根据数组的 Length得到一个标识符号
             int rs = resizeStamp(tab.length);
+            //3.如果 nextTAb没有被并发修改且tab也没有被并发修改,同时 sizeCtl<0,说明还在扩容
             while (nextTab == nextTable && table == tab &&
                     (sc = sizeCtl) < 0) {
+                //4、对 sizect参数值进行分析判断
+                // 判断1:如果 sizes无符号右移16不等于rs,则标识符变化了
+                //判断2:如果 sizectl=rs+1,表示扩容结束了,不再有线程进行扩容
+                //判断3:如果 sizectl=rs+65535,表示达到最大帮助线程的数量,即65535
+                //判断4:如果转移下标 transferIndex<=0,表示扩容结束
+                //满足任何一个判断,结束循环,返回 table
                 if ((sc >>> RESIZE_STAMP_SHIFT) != rs || sc == rs + 1 ||
                         sc == rs + MAX_RESIZERS || transferIndex <= 0)
                     break;
+                //5.如果以上都不是,将 sizectl+1,表示增加了一个线程帮助其扩容
                 if (U.compareAndSwapInt(this, SIZECTL, sc, sc + 1)) {
+                    //6.对数组进行转移,执行完之后结束循环
                     transfer(tab, nextTab);
                     break;
                 }
