@@ -179,18 +179,27 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * Extracts element at current take position, advances, and signals.
      * Call only when holding lock.
      */
+    /**
+     * 提取 takeIndex 位置上的元素， 然后 takeIndex 前进一位，
+     * 同时唤醒 notFull 等待队列(链表)中的第一个可用线程去 put 数据。
+     * 这些操作都是在当前线程获取到锁的前提下进行的，
+     * 同时也说明了 dequeue 方法线程安全的。
+     */
     private E dequeue() {
         // assert lock.getHoldCount() == 1;
         // assert items[takeIndex] != null;
         final Object[] items = this.items;
         @SuppressWarnings("unchecked")
-        E x = (E) items[takeIndex];
-        items[takeIndex] = null;
+        E x = (E) items[takeIndex];// 提取 takeIndex位置上的数据
+        items[takeIndex] = null;// 同时清空数组在 takeIndex 位置上的数据
+        // takeIndex 向前前进一位，如果前进后位置超过了数组的长度，则将其设置为0；
+        // 为什么设置为0，理由在 putIndex 设置为0的时候介绍过了，原因是一样的。
         if (++takeIndex == items.length)
             takeIndex = 0;
-        count--;
-        if (itrs != null)
+        count--; // 同时数组的元素个数进行减1
+        if (itrs != null)// 同时更新迭代器中的元素
             itrs.elementDequeued();
+        // 提取完数据后，说明数组中有空位，所以可以唤醒 notFull 条件对象的等待队列(链表)中的第一个可用线程去 put 数据
         notFull.signal();
         return x;
     }
@@ -410,12 +419,15 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         }
     }
 
+    // 提取数据，数组中数据为空时，直接返回 null
     public E poll() {
         final ReentrantLock lock = this.lock;
-        lock.lock();
+        lock.lock();// 加锁，前面也分析过，要执行 dequeue操作时，当前线程必须获取锁，保证线程安全
         try {
+            // 元素个数为0时，直接返回 null，不为0时，元素出队
             return (count == 0) ? null : dequeue();
         } finally {
+            // 释放锁，在 finally 中释放可以避免死锁
             lock.unlock();
         }
     }
