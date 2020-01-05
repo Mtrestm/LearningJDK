@@ -154,14 +154,24 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * Inserts element at current put position, advances, and signals.
      * Call only when holding lock.
      */
+    /**
+     * 在当前 put 位置插入数据，put 位置前进一位，
+     * 同时唤醒 notEmpty 条件对象等待队列(链表)中第一个可用线程去 take 数据。
+     * 当然这一系列动作只有该线程获取锁的时候才能进行，即只有获取锁的线程
+     * 才能执行 enqueue 操作。
+     */
+    // 元素统一入队操作
     private void enqueue(E x) {
         // assert lock.getHoldCount() == 1;
         // assert items[putIndex] == null;
         final Object[] items = this.items;
-        items[putIndex] = x;
+        items[putIndex] = x;// putIndex 位置添加数据
+        //putIndex 进行自增，当达到数组长度的时候，putIndex 重头再来，即设置为0
+        //为什么呢？下面会具体介绍
         if (++putIndex == items.length)
             putIndex = 0;
-        count++;
+        count++; //元素个数自增
+        //添加完数据后，说明数组中有数据了，所以可以唤醒 notEmpty 条件对象等待队列(链表)中第一个可用线程去 take 数据
         notEmpty.signal();
     }
 
