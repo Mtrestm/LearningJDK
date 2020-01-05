@@ -253,6 +253,17 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * - it is permitted for tail to lag behind head, that is, for tail
      *   to not be reachable from head!
      */
+    /**
+     * 不变性:
+     *  - 队列中所有未删除的节点都可以通过head节点的succ方法查找到
+     *  - head节点一定不可能等于null
+     *  - (tmp = head).next != tmp,即head的next不能指向自己。
+     *
+     * 可变性:
+     * - head的item可能为null,也可能不为null
+     * - tail节点可能会滞后于head节点，因此从head节点未必一定可以找到tail节点
+     *
+     */
     private transient volatile Node<E> head;
 
     /**
@@ -266,6 +277,16 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * - it is permitted for tail to lag behind head, that is, for tail
      *   to not be reachable from head!
      * - tail.next may or may not be self-pointing to tail.
+     */
+    /**
+     * 不变性:
+     *  - 节点中的最后一个元素总是可以通过tail的succ方法来获取
+     *  - tail节点不等于null
+     *
+     * 可变性:
+     *  - head的item可能为null,也可能不为null
+     *  - tail 节点的next可能指向自己，也可能不指向自己
+     *  - tail节点可能会滞后于head节点，因此从head节点未必一定可以找到tail节点
      */
     private transient volatile Node<E> tail;
 
@@ -344,30 +365,48 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * @throws NullPointerException if the specified element is null
      */
     public boolean offer(E e) {
+        // 由于元素不允许为null,因此对元素做一个检查
         checkNotNull(e);
+        // 生成待插入的节点
         final Node<E> newNode = new Node<E>(e);
 
         for (Node<E> t = tail, p = t;;) {
             Node<E> q = p.next;
+            // 当q等于null时，则p就是队列中的最后一个元素
             if (q == null) {
                 // p is last node
-                if (p.casNext(null, newNode)) {
+                // 执行cas操作，如果执行成功,则newNode成为队列的最后一个元素,但它未必是tail指向的元素
+                if (p.casNext(null, newNode)) {//程序1
                     // Successful CAS is the linearization point
                     // for e to become an element of this queue,
                     // and for newNode to become "live".
+                    // 通过判断p!=t，从而确定当前新节点与tail指向的节点之间的距离是否大于1
+                    // 如果大于1，则需要更新tail指针
                     if (p != t) // hop two nodes at a time
                         casTail(t, newNode);  // Failure is OK.
                     return true;
                 }
                 // Lost CAS race to another thread; re-read next
             }
-            else if (p == q)
+            // 如果p==q，则意味着当前p节点已经被从队列中移除(如果单纯从入队列看是看不出来的，后面结合出队列再回头分析)
+           //这种情况是由于遇到了哨兵节点导致的。所谓哨兵节点，就是next指向自己的节点。这种节点在队列中的存在价值不大，主要表示要删除的节点或者空节点。当遇到哨兵节点的时候，由于无法通过next取得后续的节点，因此很可能直接返回head，期望通过从链表头部开始遍历，进一步查找到链表末尾。但一旦发生在执行过程中，tail被其他线程修改的情况，则进行一次“打赌”，使用新的tail作为链表末尾，这样就避免了重新查找tail的开销。
+            else if (p == q)//程序2
                 // We have fallen off list.  If tail is unchanged, it
                 // will also be off-list, in which case we need to
                 // jump to head, from which all live nodes are always
                 // reachable.  Else the new tail is a better bet.
+                /* 判断在执行过程中tail是否发生变化,如果未发生变化,则tail也已经脱落队列
+                 * 因为 p = t = tail,而p已经脱离队列，从而推断出tail也脱离了队列
+                 * 那么此时只能从head开始，重新查找队列的最后一个元素
+                 * 如果tail发生了变化，则直接从当前队列的tail开始查找队列的最后一个元素
+                 */
                 p = (t != (t = tail)) ? t : head;
-            else
+            else//程序3
+            /**
+             *  由于p节点的next不为null，并且p节点并未从队列中删除，因此需要继续查找队列的最后一个节点
+             *  判断执行过程中tail节点是否发生了变化
+             *  如果发生了变化,则让p执行当前的tail，否则就让p直接指向它的next节点q
+             */
                 // Check for tail updates after two hops.
                 p = (p != t && t != (t = tail)) ? t : q;
         }
