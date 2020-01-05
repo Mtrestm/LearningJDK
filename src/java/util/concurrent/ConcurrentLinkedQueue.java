@@ -408,6 +408,7 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
              *  如果发生了变化,则让p执行当前的tail，否则就让p直接指向它的next节点q
              */
                 // Check for tail updates after two hops.
+                //添加第二元素时,因为之前的tail 未发生变化,所以得到p=q(q 是添加的第一个节点)
                 p = (p != t && t != (t = tail)) ? t : q;
         }
     }
@@ -417,21 +418,28 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
         for (;;) {
             for (Node<E> h = head, p = h, q;;) {
                 E item = p.item;
-
+                // 如果元素的item不为null，则说明p节点是当前队列中的第一个未被删除的节点
+                //  此时也说明head指向的节点确实是队列中的第一个元素
+                // 通过CAS操作，将item设置为null,来标记其已经被删除
                 if (item != null && p.casItem(item, null)) {
+                    // 判断p节点与head指向的节点是否是同一个,如果不是则需要将head节点向前移动
                     // Successful CAS is the linearization point
                     // for item to be removed from this queue.
                     if (p != h) // hop two nodes at a time
                         updateHead(h, ((q = p.next) != null) ? q : p);
                     return item;
                 }
+                // 节点的next为null,则说明队列为空，只有一个dummy节点
                 else if ((q = p.next) == null) {
                     updateHead(h, p);
                     return null;
                 }
+                // 如果p节点被删除,只能从队列的head从头开始再次查找
                 else if (p == q)
+                    // 跳回到最外层的循环，重新执行一次Node<E> h = head, p = h, q；操作
                     continue restartFromHead;
                 else
+                    // 由于head指向的节点其item为null,即head指向的节点不是一个有效节点，因此继续通过head的next继续查找
                     p = q;
             }
         }
