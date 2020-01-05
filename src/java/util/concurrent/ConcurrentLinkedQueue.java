@@ -177,26 +177,44 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
      * optimization.
      */
 
+    //该节点是一个静态内部类，因此其只能作用于该队列内部
     private static class Node<E> {
+        /*
+         * 当前节点存储的元素，注意到这里使用volatile关键字来对节点进行
+         * 修饰,其目的是在并发读的时候保证内存的可见性
+         */
         volatile E item;
+        //当前节点的下一个节点
         volatile Node<E> next;
 
         /**
          * Constructs a new node.  Uses relaxed write because item can
          * only be seen after publication via casNext.
          */
+        /**
+         * 构建新的节点，这里没有使用volatile的方式来对节点的元素值进行设置，而是使用普通的写方式
+         * 因为对于一个新增的节点，只有在其被成功插入到队列尾部才对外可见，因此在这里没有对数据可见性的强制要求
+         */
         Node(E item) {
             UNSAFE.putObject(this, itemOffset, item);
         }
 
+        /*
+         *  通过Unsafe来完成对当前节点元素的CAS操作
+         */
         boolean casItem(E cmp, E val) {
             return UNSAFE.compareAndSwapObject(this, itemOffset, cmp, val);
         }
-
+        /*
+         *  使用普通的方式来设置当前节点的下一个节点
+         */
         void lazySetNext(Node<E> val) {
             UNSAFE.putOrderedObject(this, nextOffset, val);
         }
 
+        /*
+         *  通过Unsafe来完成对当前节点的下一个节点的CAS操作
+         */
         boolean casNext(Node<E> cmp, Node<E> val) {
             return UNSAFE.compareAndSwapObject(this, nextOffset, cmp, val);
         }
@@ -211,8 +229,10 @@ public class ConcurrentLinkedQueue<E> extends AbstractQueue<E>
             try {
                 UNSAFE = sun.misc.Unsafe.getUnsafe();
                 Class<?> k = Node.class;
+                //通过Unsafe来获取一个Node节点的item属性在内存中相对该对象的位置偏移量
                 itemOffset = UNSAFE.objectFieldOffset
                     (k.getDeclaredField("item"));
+                //通过Unsafe来获取一个Node节点的next节点属性在内存中相对该对象的位置偏移量
                 nextOffset = UNSAFE.objectFieldOffset
                     (k.getDeclaredField("next"));
             } catch (Exception e) {

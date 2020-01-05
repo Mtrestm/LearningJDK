@@ -193,7 +193,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         E x = (E) items[takeIndex];// 提取 takeIndex位置上的数据
         items[takeIndex] = null;// 同时清空数组在 takeIndex 位置上的数据
         // takeIndex 向前前进一位，如果前进后位置超过了数组的长度，则将其设置为0；
-        // 为什么设置为0，理由在 putIndex 设置为0的时候介绍过了，原因是一样的。
+        //如果相等说明已到尽头，恢复为0
         if (++takeIndex == items.length)
             takeIndex = 0;
         count--; // 同时数组的元素个数进行减1
@@ -214,6 +214,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         // assert items[removeIndex] != null;
         // assert removeIndex >= 0 && removeIndex < items.length;
         final Object[] items = this.items;
+        // 如果要移除元素就是出队索引处元素，按照一般出队方法移除即可
         if (removeIndex == takeIndex) {
             // removing front item; just advance
             items[takeIndex] = null;
@@ -221,20 +222,29 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
                 takeIndex = 0;
             count--;
             if (itrs != null)
-                itrs.elementDequeued();
+                itrs.elementDequeued();//更新迭代器中的数据(维护迭代器中的数据,因为itrs是实例变量,保证其它地方使用迭代器拿到的都是最新的数据)
         } else {
             // an "interior" remove
 
             // slide over all others up through putIndex.
+            //如果要删除的元素不在队列头部，
+            //那么只需循环迭代把删除元素后面的所有元素往前移动一个位置
+            //获取下一个要被添加的元素的索引，作为循环判断结束条件
             final int putIndex = this.putIndex;
             for (int i = removeIndex;;) {
+                // 循环中，会从要移除的下标处，向后递增，把数据依次前移，直到队尾
+                //获取要删除节点索引的下一个索引
                 int next = i + 1;
+                //判断是否已为数组长度，如果是从数组头部（索引为0）开始找
                 if (next == items.length)
                     next = 0;
+                // 判断是否到了队尾的入队索引处( 如果查找的索引不等于要添加元素的索引，说明元素可以再移动)
                 if (next != putIndex) {
+                    // 往前移动元素
                     items[i] = items[next];
                     i = next;
                 } else {
+                    // 到了队尾索引处，表示元素移动完成，再重新设置队尾索引
                     items[i] = null;
                     this.putIndex = i;
                     break;
@@ -242,8 +252,9 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
             }
             count--;
             if (itrs != null)
-                itrs.removedAt(removeIndex);
+                itrs.removedAt(removeIndex);//更新迭代器中的数据(维护迭代器中的数据,因为itrs是实例变量,保证其它地方使用迭代器拿到的都是最新的数据)
         }
+        // 最后唤醒notFull等待队列中的线程(唤醒添加线程)
         notFull.signal();
     }
 
@@ -432,13 +443,17 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         }
     }
 
+    // 从队列头部提取数据，队列中没有元素则阻塞，阻塞期间线程可中断
     public E take() throws InterruptedException {
         final ReentrantLock lock = this.lock;
+        //获取锁，期间线程可以打断，打断则不会提取
         lock.lockInterruptibly();
         try {
+            // 元素为0时，当有线程提取元素，则将该线程加入到 notEmpty 条件对象的等待队列中，
+            // 直到当队列中有数据之后，会唤醒该线程去提取数据。
             while (count == 0)
                 notEmpty.await();
-            return dequeue();
+            return dequeue();// 若有数据，直接调用 dequeue 提取数据
         } finally {
             lock.unlock();
         }
@@ -460,6 +475,10 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
         }
     }
 
+    /**
+     * 通过代码可以看到，peek 是获取元素，而不是提取， 不会删除 takeIndex 位置上的数据。
+     * 内部通过 itemAt 方法实现，而不是 dequeue 方法。
+     */
     public E peek() {
         final ReentrantLock lock = this.lock;
         lock.lock();
@@ -528,16 +547,24 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * @return {@code true} if this queue changed as a result of the call
      */
     public boolean remove(Object o) {
+        // 如果元素是null，直接返回
         if (o == null) return false;
         final Object[] items = this.items;
         final ReentrantLock lock = this.lock;
         lock.lock();
         try {
+            // 如果队列中有元素
             if (count > 0) {
+                // 入队索引
                 final int putIndex = this.putIndex;
+                // 出队索引
                 int i = takeIndex;
+                // 循环判断，从队头直到队尾
                 do {
+                    // 如果出队索引处(这里的出队索引不是原来的takeIndex,而是自定义的i，一直自增)元素
+                    // 与要移除的元素相等，进行移除操作
                     if (o.equals(items[i])) {
+                        // 移除元素
                         removeAt(i);
                         return true;
                     }
