@@ -320,6 +320,8 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * @throws IllegalStateException if this queue is full
      * @throws NullPointerException if the specified element is null
      */
+    // add 方法其实就是调用了 offer 方法来实现，
+    // 与 offer 方法的区别就是 offer 方法数组满，抛出 IllegalStateException 异常。
     public boolean add(E e) {
         return super.add(e);
     }
@@ -333,18 +335,24 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      *
      * @throws NullPointerException if the specified element is null
      */
+    // 添加数据，数组中元素已满时，直接返回 false。
     public boolean offer(E e) {
         checkNotNull(e);
         final ReentrantLock lock = this.lock;
+        // 获取锁，保证线程安全
         lock.lock();
         try {
+            // 当数组元素个数已满时，直接返回false
             if (count == items.length)
                 return false;
             else {
+                // 执行入队操作，enqueue 方法在上面分析了
                 enqueue(e);
                 return true;
             }
         } finally {
+            // 释放锁，保证其他等待锁的线程可以获取到锁
+            // 为什么放到 finally (避免死锁)
             lock.unlock();
         }
     }
@@ -356,13 +364,18 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * @throws InterruptedException {@inheritDoc}
      * @throws NullPointerException {@inheritDoc}
      */
+    //插入数据到队列尾部，如果队列已满，阻塞等待空间
     public void put(E e) throws InterruptedException {
         checkNotNull(e);
         final ReentrantLock lock = this.lock;
+        // 获取锁，期间线程可以打断，打断则不会添加
         lock.lockInterruptibly();
         try {
+            // 通过上述分析，我们通过 count 来判断数组中元素个数
             while (count == items.length)
+                // 元素已满，线程挂起，线程加入 notFull 条件对象等待队列(链表)中，等待被唤醒
                 notFull.await();
+            // 队列未满，直接执行入队操作
             enqueue(e);
         } finally {
             lock.unlock();
