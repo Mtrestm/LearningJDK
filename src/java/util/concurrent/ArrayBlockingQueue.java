@@ -91,16 +91,16 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
     private static final long serialVersionUID = -817911632652898426L;
 
     /** The queued items */
-    final Object[] items;
+    final Object[] items; // 容器数组
 
     /** items index for next take, poll, peek or remove */
-    int takeIndex;
+    int takeIndex;// 出队索引
 
     /** items index for next put, offer, or add */
-    int putIndex;
+    int putIndex;// 入队索引
 
     /** Number of elements in the queue */
-    int count;
+    int count;// queue中排队元素个数
 
     /*
      * Concurrency control uses the classic two-condition algorithm
@@ -108,13 +108,13 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      */
 
     /** Main lock guarding all access */
-    final ReentrantLock lock;
+    final ReentrantLock lock;// 全局锁
 
     /** Condition for waiting takes */
-    private final Condition notEmpty;
+    private final Condition notEmpty;// 出队条件队列(非空条件对象，用于通知 take 方法中在等待获取数据的线程，队列中已有数据，可以执行获取操作)
 
     /** Condition for waiting puts */
-    private final Condition notFull;
+    private final Condition notFull;// 入队条件队列(未满条件对象，用于通知 put 方法中在等待添加数据的线程，队列未满，可以执行添加操作)
 
     /**
      * Shared state for currently active iterators, or null if there
@@ -235,6 +235,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      * @param capacity the capacity of this queue
      * @throws IllegalArgumentException if {@code capacity < 1}
      */
+    //创建一个具体容量的队列，默认是非公平队列
     public ArrayBlockingQueue(int capacity) {
         this(capacity, false);
     }
@@ -249,6 +250,7 @@ public class ArrayBlockingQueue<E> extends AbstractQueue<E>
      *        if {@code false} the access order is unspecified.
      * @throws IllegalArgumentException if {@code capacity < 1}
      */
+    //创建一个具体容量、是否公平的队列
     public ArrayBlockingQueue(int capacity, boolean fair) {
         if (capacity <= 0)
             throw new IllegalArgumentException();

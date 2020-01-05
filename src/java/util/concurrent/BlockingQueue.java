@@ -196,6 +196,10 @@ public interface BlockingQueue<E> extends Queue<E> {
      * @throws IllegalArgumentException if some property of the specified
      *         element prevents it from being added to this queue
      */
+    /**
+     * 插入数据到队列尾部（如果立即可行且不会超过该队列的容量）
+     * 在成功时返回 true，如果此队列已满，则抛IllegalStateException。(与offer方法的区别)
+     */
     boolean add(E e);
 
     /**
@@ -215,6 +219,10 @@ public interface BlockingQueue<E> extends Queue<E> {
      * @throws IllegalArgumentException if some property of the specified
      *         element prevents it from being added to this queue
      */
+    /**
+     * 插入数据到队列尾部，如果没有空间，直接返回false;
+     * 有空间直接插入，返回true。
+     */
     boolean offer(E e);
 
     /**
@@ -228,6 +236,10 @@ public interface BlockingQueue<E> extends Queue<E> {
      * @throws NullPointerException if the specified element is null
      * @throws IllegalArgumentException if some property of the specified
      *         element prevents it from being added to this queue
+     */
+    /**
+     * 插入数据到队列尾部，如果队列没有空间，一直阻塞；
+     * 有空间直接插入。
      */
     void put(E e) throws InterruptedException;
 
@@ -249,6 +261,10 @@ public interface BlockingQueue<E> extends Queue<E> {
      * @throws IllegalArgumentException if some property of the specified
      *         element prevents it from being added to this queue
      */
+    /**
+     * 插入数据到队列尾部，如果没有额外的空间，等待一定的时间，有空间即插入，返回true，
+     * 到时间了，还是没有额外空间，返回false。
+     */
     boolean offer(E e, long timeout, TimeUnit unit)
         throws InterruptedException;
 
@@ -258,6 +274,10 @@ public interface BlockingQueue<E> extends Queue<E> {
      *
      * @return the head of this queue
      * @throws InterruptedException if interrupted while waiting
+     */
+
+    /**
+     * 取出和删除队列中的头元素，如果没有数据，会一直阻塞到有数据
      */
     E take() throws InterruptedException;
 
@@ -272,6 +292,9 @@ public interface BlockingQueue<E> extends Queue<E> {
      * @return the head of this queue, or {@code null} if the
      *         specified waiting time elapses before an element is available
      * @throws InterruptedException if interrupted while waiting
+     */
+    /**
+     * 取出和删除队列中的头元素，如果没有数据，需要会阻塞一定的时间，过期了还没有数据，返回null
      */
     E poll(long timeout, TimeUnit unit)
         throws InterruptedException;
@@ -288,6 +311,9 @@ public interface BlockingQueue<E> extends Queue<E> {
      * insert or remove an element.
      *
      * @return the remaining capacity
+     */
+    /**
+     * 返回队列总额外的空间
      */
     int remainingCapacity();
 
