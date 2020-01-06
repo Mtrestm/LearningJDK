@@ -25,21 +25,22 @@
 
 package java.lang;
 
-import java.lang.ref.Reference;
-import java.lang.ref.ReferenceQueue;
-import java.lang.ref.WeakReference;
-import java.security.AccessController;
-import java.security.AccessControlContext;
-import java.security.PrivilegedAction;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.locks.LockSupport;
 import sun.nio.ch.Interruptible;
 import sun.reflect.CallerSensitive;
 import sun.reflect.Reflection;
 import sun.security.util.SecurityConstants;
+
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
+import java.security.AccessControlContext;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.LockSupport;
 
 
 /**
@@ -145,46 +146,57 @@ class Thread implements Runnable {
         registerNatives();
     }
 
-    private volatile String name;
-    private int            priority;
+    private volatile String namesname; //名称
+    private int            priority; //优先级
     private Thread         threadQ;
     private long           eetop;
 
     /* Whether or not to single_step this thread. */
+    //是否单步执行此线程，可能跟调试有关
     private boolean     single_step;
 
     /* Whether or not the thread is a daemon thread. */
-    private boolean     daemon = false;
+    private boolean     daemon = false;//守护线程标识
 
     /* JVM state */
     private boolean     stillborn = false;
 
     /* What will be run. */
-    private Runnable target;
+    private Runnable target; //要执行的runnable对象，(线程初始化时会使用)
 
     /* The group of this thread */
-    private ThreadGroup group;
+    private ThreadGroup group;//当前线程属于哪个线程组，(线程初始化时会使用)
 
     /* The context ClassLoader for this thread */
+    //当前线程的上下文类加载器，也就是这个属性是破坏双亲委派模型的决定性变量
     private ClassLoader contextClassLoader;
 
     /* The inherited AccessControlContext of this thread */
+    //当前线程继承到的访问控制上下文，线程初始化的时候会进行初始化
     private AccessControlContext inheritedAccessControlContext;
 
     /* For autonumbering anonymous threads. */
+    //对匿名线程进行自动编号默认从0开始
     private static int threadInitNumber;
+    //使用了同步机制，保障threadInitNumber不会重复
     private static synchronized int nextThreadNum() {
         return threadInitNumber++;
     }
 
     /* ThreadLocal values pertaining to this thread. This map is maintained
      * by the ThreadLocal class. */
+    //当前线程拥有的本地变量副本，通过ThreadLocal的内部类进行引用
     ThreadLocal.ThreadLocalMap threadLocals = null;
 
     /*
      * InheritableThreadLocal values pertaining to this thread. This map is
      * maintained by the InheritableThreadLocal class.
      */
+    /**
+     * 在创建子线程时，子线程会接收所有可继承的线程局部变量的初始值，以获得父线程所具有的值
+     * 为子线程提供从父线程那里继承的值
+     * */
+    //InheritableThreadLocal类的本地变量副本，InheritableThreadLocal是ThreadLocal的子类
     ThreadLocal.ThreadLocalMap inheritableThreadLocals = null;
 
     /*
@@ -192,24 +204,33 @@ class Thread implements Runnable {
      * not specify a stack size.  It is up to the VM to do whatever it
      * likes with this number; some VMs will ignore it.
      */
+    //当前线程请求栈的大小，具体由虚拟机决定怎么用他
     private long stackSize;
 
     /*
      * JVM-private state that persists after native thread termination.
      */
+    //这个变量应该跟虚拟机底层监控有关，不太清楚
     private long nativeParkEventPointer;
 
     /*
      * Thread ID
      */
+    //当前线程的线程id
     private long tid;
 
     /* For generating thread ID */
+    //当前线程的线程id种子序列号，默认是0L
     private static long threadSeqNumber;
 
     /* Java thread status for tools,
      * initialized to indicate thread 'not yet started'
      */
+    //标识线程状态，默认是线程未启动
+    /**
+     * 线程状态有如下几种：NEW RUNNABLE WAITING TIMED_WAITING TERMINATED
+     * NEW时对应的threadStatus为0；
+     * */
 
     private volatile int threadStatus = 0;
 
@@ -224,17 +245,23 @@ class Thread implements Runnable {
      * Set by (private) java.util.concurrent.locks.LockSupport.setBlocker
      * Accessed using java.util.concurrent.locks.LockSupport.getBlocker
      */
+    //这个参数标识锁是否是阻塞状态，通过LockSupport的api方法设置这个值，Thread本身不会设置这个值
+    //如果设置阻塞状态应该会被挂起
     volatile Object parkBlocker;
 
     /* The object in which this thread is blocked in an interruptible I/O
      * operation, if any.  The blocker's interrupt method should be invoked
      * after setting this thread's interrupt status.
      */
+    //阻塞器锁，主要用于处理阻塞情况
+    //当线程处于中断状态的话这个接口（Interruptible）的interrupt方法会被调用，并中断线程
     private volatile Interruptible blocker;
+    //当前线程拥有的中断锁对象
     private final Object blockerLock = new Object();
 
     /* Set the blocker field; invoked via sun.misc.SharedSecrets from java.nio code
      */
+    //提供中断方法，Thread本身不会调用，由其他底层API使用
     void blockedOn(Interruptible b) {
         synchronized (blockerLock) {
             blocker = b;
@@ -244,16 +271,19 @@ class Thread implements Runnable {
     /**
      * The minimum priority that a thread can have.
      */
+    //最低优先级
     public final static int MIN_PRIORITY = 1;
 
    /**
      * The default priority that is assigned to a thread.
      */
+   //默认优先级
     public final static int NORM_PRIORITY = 5;
 
     /**
      * The maximum priority that a thread can have.
      */
+    //最高优先级
     public final static int MAX_PRIORITY = 10;
 
     /**
@@ -368,60 +398,75 @@ class Thread implements Runnable {
         if (name == null) {
             throw new NullPointerException("name cannot be null");
         }
-
+        //设置线程名
         this.name = name;
-
+        //获取创建thread的线程(当前线程的创建过程中有些属性是从父类线程中继承过来)
         Thread parent = currentThread();
+        //设置当前线程所属的线程组
         SecurityManager security = System.getSecurityManager();
+        //如果线程组为空
         if (g == null) {
             /* Determine if it's an applet or not */
 
             /* If there is a security manager, ask the security manager
                what to do. */
+            //如果安全管理器不为空
             if (security != null) {
                 g = security.getThreadGroup();
             }
 
             /* If the security doesn't have a strong opinion of the matter
                use the parent thread group. */
+            //如果从安全管理器中获取的线程组还是为空
             if (g == null) {
+                //则使用父线程的线程组
                 g = parent.getThreadGroup();
             }
         }
 
         /* checkAccess regardless of whether or not threadgroup is
            explicitly passed in. */
+        //检查安全访问权限
         g.checkAccess();
 
         /*
          * Do we have the required permissions?
          */
+        //使用安全管理器检查是否有权限
         if (security != null) {
             if (isCCLOverridden(getClass())) {
                 security.checkPermission(SUBCLASS_IMPLEMENTATION_PERMISSION);
             }
         }
 
+        //这里说明每个线程肯定属于某个线程组，而且创建之后在线程组中会记个数代表没有启动的线程数量
         g.addUnstarted();
 
         this.group = g;
+        //如果父类是守护线程那么子类也是
         this.daemon = parent.isDaemon();
+        //父类跟子类享有相同的线程优先级
         this.priority = parent.getPriority();
+        //通过父类线程获取线程上下文类加载器
         if (security == null || isCCLOverridden(parent.getClass()))
             this.contextClassLoader = parent.getContextClassLoader();
         else
             this.contextClassLoader = parent.contextClassLoader;
+        //如果访问控制上下文是空，则使用当前的访问上下文
         this.inheritedAccessControlContext =
                 acc != null ? acc : AccessController.getContext();
         this.target = target;
+        //设置线程优先级，线程优先级不可以比他所属线程组中其他的线程的优先级高，可以进去看这个方法的源码
         setPriority(priority);
         if (inheritThreadLocals && parent.inheritableThreadLocals != null)
             this.inheritableThreadLocals =
                 ThreadLocal.createInheritedMap(parent.inheritableThreadLocals);
         /* Stash the specified stack size in case the VM cares */
+        //设置线程栈大小
         this.stackSize = stackSize;
 
         /* Set thread ID */
+        //设置线程id
         tid = nextThreadID();
     }
 
@@ -444,6 +489,9 @@ class Thread implements Runnable {
      * name. Automatically generated names are of the form
      * {@code "Thread-"+}<i>n</i>, where <i>n</i> is an integer.
      */
+    //总体来说Thread的构造方法中调用的是init方法，但是
+    //Thread 的构造方法很多，因此需要大概的翻一下，
+    //但是基本上需要指定线程名，其他可以走默认值
     public Thread() {
         init(null, null, "Thread-" + nextThreadNum(), 0);
     }
@@ -1494,6 +1542,7 @@ class Thread implements Runnable {
      */
     public static native boolean holdsLock(Object obj);
 
+    //当前线程执行的栈数组
     private static final StackTraceElement[] EMPTY_STACK_TRACE
         = new StackTraceElement[0];
 
@@ -1855,9 +1904,11 @@ class Thread implements Runnable {
     }
 
     // null unless explicitly set
+    //线程异常处理器
     private volatile UncaughtExceptionHandler uncaughtExceptionHandler;
 
     // null unless explicitly set
+    //线程异常处理器
     private static volatile UncaughtExceptionHandler defaultUncaughtExceptionHandler;
 
     /**
@@ -2029,6 +2080,7 @@ class Thread implements Runnable {
     // Hence, the fields are isolated with @Contended.
 
     /** The current seed for a ThreadLocalRandom */
+    //下面三个参数用于构造高性能的随机数生成器
     @sun.misc.Contended("tlr")
     long threadLocalRandomSeed;
 
