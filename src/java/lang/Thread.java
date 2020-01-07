@@ -309,6 +309,13 @@ class Thread implements Runnable {
      * concurrency control constructs such as the ones in the
      * {@link java.util.concurrent.locks} package.
      */
+    /**
+     *  暗示线程调度器当前线程将释放自己当前占用的CPU资源
+     *  - 线程调度器会自由选择是否忽视此暗示
+     *  - 该方法会放弃当前的CPU资源，将它让给其他的任务去占用CPU执行时间
+     *  - 但放弃的时间不确定，可能刚刚放弃又获得CPU时间片
+     *  该方法的适合使用场景比较少，主要用于Debug，比如Lock包设计
+     */
     public static native void yield();
 
     /**
@@ -328,7 +335,7 @@ class Thread implements Runnable {
      *          <i>interrupted status</i> of the current thread is
      *          cleared when this exception is thrown.
      */
-    public static native void sleep(long millis) throws InterruptedException;
+    public static native void sleepsleep(long millis) throws InterruptedException;
 
     /**
      * Causes the currently executing thread to sleep (temporarily cease
@@ -352,6 +359,7 @@ class Thread implements Runnable {
      *          <i>interrupted status</i> of the current thread is
      *          cleared when this exception is thrown.
      */
+    //使线程睡眠一段毫秒时间，但线程并不会丢失已有的任何监视器
     public static void sleep(long millis, int nanos)
     throws InterruptedException {
         if (millis < 0) {
@@ -761,13 +769,14 @@ class Thread implements Runnable {
         /* Notify the group that this thread is about to be started
          * so that it can be added to the group's list of threads
          * and the group's unstarted count can be decremented. */
+        //通知所属线程组该线程已经是就绪状态，因而可以被添加到该线程组中
         //通知线程组，当前线程即将启动，线程组当前启动线程数+1，未启动线程数-1
         group.add(this);
-
         //启动标识
         boolean started = false;
         try {
-            //直接调用本地方法启动线程
+            //调用本地方法，将内存中的线程状态变更为就绪态
+            //同时JVM会立即调用run方法,获取到CPU之后，线程变成运行态并立即执行run方法
             start0();
             //设置启动标识为启动成功
             started = true;
@@ -775,12 +784,14 @@ class Thread implements Runnable {
             try {
                 //如果启动呢失败
                 if (!started) {
+                    //如果变更失败，要回滚线程和线程组状态
                     //线程组内部移除当前启动的线程数量-1，同时启动失败的线程数量+1
                     group.threadStartFailed(this);
                 }
             } catch (Throwable ignore) {
                 /* do nothing. If start0 threw a Throwable then
                   it will be passed up the call stack */
+                //如果start0出错，会被调用栈直接通过
             }
         }
     }
@@ -801,6 +812,7 @@ class Thread implements Runnable {
      */
     @Override
     public void run() {
+        //当前执行任务的Runnable对象不为空，则调用其run方法
         if (target != null) {
             target.run();
         }
@@ -968,6 +980,20 @@ class Thread implements Runnable {
      * @revised 6.0
      * @spec JSR-51
      */
+    /**
+     * 中断一个线程(实质是设置中断标志位，标记中断状态)
+     *   - 线程只能被自己中断，否则抛出SecurityException异常
+     *   - 特殊中断处理如下：
+     *     1.若中断线程被如下方法阻塞，会抛出InterruptedException同时清除中断状态：
+     *     Object.wait()、Thread.join() or Thread.sleep()
+     *
+     *     2.若线程在InterruptibleChannel上发生IO阻塞，该通道要被关闭并将设置中断状态同时抛出ClosedByInterruptException异常
+     *
+     *     3.若线程被NIO多路复用器Selector阻塞，会设置中断状态且从select方法中立即返回一个非0值(当wakeup方法正好被调用时)
+     *
+     *   - 非上述情况都会将线程状态设置为中断
+     *   - 中断一个非活线程不会有啥影响
+     */
     public void interrupt() {
         if (this != Thread.currentThread())
             checkAccess();
@@ -975,6 +1001,7 @@ class Thread implements Runnable {
         synchronized (blockerLock) {
             Interruptible b = blocker;
             if (b != null) {
+                // 调用interrupt方法仅仅是在当前线程中打了一个停止的标记，并不是真的停止线程！
                 interrupt0();           // Just to set the interrupt flag
                 b.interrupt(this);
                 return;
@@ -1000,7 +1027,13 @@ class Thread implements Runnable {
      * @see #isInterrupted()
      * @revised 6.0
      */
+    /**
+     *  检测当前线程是否是中断状态，执行后将清除中断状态
+     *  当连续两次调用该方法时，第二次会返回false(除非该线程再次被中断)
+     */
     public static boolean interrupted() {
+        //当前线程会调用本地isInterrupted方法，同时不清除状态标志
+        //注意比isInterrupted方法多了个currentThread
         return currentThread().isInterrupted(true);
     }
 
@@ -1017,6 +1050,7 @@ class Thread implements Runnable {
      * @see     #interrupted()
      * @revised 6.0
      */
+    //检测线程是否是中断状态，但不清除状态标志
     public boolean isInterrupted() {
         return isInterrupted(false);
     }
@@ -1084,6 +1118,12 @@ class Thread implements Runnable {
      *   are Thread.stop, Thread.suspend and Thread.resume Deprecated?</a>.
      */
     @Deprecated
+    /**
+     *  暂停当前线程
+     *   - 若当前线程还活着，将被暂停同时直到被恢复之前都不会做任何事
+     *   - 在操作在执行之前必须获取锁
+     *   - 该操作在暂停线程的同时并不会释放锁
+     */
     public final void suspend() {
         checkAccess();
         suspend0();
@@ -1110,6 +1150,12 @@ class Thread implements Runnable {
      *     are Thread.stop, Thread.suspend and Thread.resume Deprecated?</a>.
      */
     @Deprecated
+    /**
+     * 恢复一个被暂停的线程
+     *   - 若线程活着同时被暂停，恢复它同时允许它继续执行后续行为
+     *   - 由于执行之前suspend会先持有锁，当resume发生在加锁后但suspend前，
+     *     会产生死锁 -> suspend会一直占据锁资源；同时线程状态仍为RUNNABLE
+     */
     public final void resume() {
         checkAccess();
         resume0();
@@ -1139,16 +1185,21 @@ class Thread implements Runnable {
      * @see        #MIN_PRIORITY
      * @see        ThreadGroup#getMaxPriority()
      */
+    //变更线程优先级 默认优先级为NORM_PRIORITY = 5
     public final void setPriority(int newPriority) {
-        ThreadGroup g;
-        checkAccess();
+        ThreadGroup g;//线程组
+        checkAccess();//检查安全权限
+        //检查优先级形参范围
         if (newPriority > MAX_PRIORITY || newPriority < MIN_PRIORITY) {
             throw new IllegalArgumentException();
         }
         if((g = getThreadGroup()) != null) {
+            //如果优先级形参大于线程组最大线程最大优先级,当前线程能设置的最大优先级即它的线程组的最大优先级
             if (newPriority > g.getMaxPriority()) {
+                //则使用线程组的优先级数据
                 newPriority = g.getMaxPriority();
             }
+            //调用本地设置线程优先级方法
             setPriority0(priority = newPriority);
         }
     }
@@ -1295,6 +1346,8 @@ class Thread implements Runnable {
      *          <i>interrupted status</i> of the current thread is
      *          cleared when this exception is thrown.
      */
+    //注意 join方法被synchronized修改，即是个同步方法，也是此处获取到同步锁，为wait做好前提准备
+    //同时lock指的就是调用join方法的对象
     public final synchronized void join(long millis)
     throws InterruptedException {
         long base = System.currentTimeMillis();
@@ -1304,11 +1357,13 @@ class Thread implements Runnable {
             throw new IllegalArgumentException("timeout value is negative");
         }
 
+        //当millis为0时，说明后续线程需要被无限循环等待，直到当前线程结束运行
         if (millis == 0) {
             while (isAlive()) {
                 wait(0);
             }
         } else {
+            //当millis>0时，在millis毫秒内后续线程需要循环等待，直到超时当前线程自动死亡
             while (isAlive()) {
                 long delay = millis - now;
                 if (delay <= 0) {
@@ -1411,10 +1466,14 @@ class Thread implements Runnable {
      *          thread cannot modify this thread
      */
     public final void setDaemon(boolean on) {
+        //检查是否有安全权限
         checkAccess();
+        //本地方法，测试此线程是否存活。, 如果一个线程已经启动并且尚未死亡，则该线程处于活动状态
         if (isAlive()) {
+            //如果线程先启动后再设置守护线程，将抛出异常
             throw new IllegalThreadStateException();
         }
+        //设置当前守护线程属性
         daemon = on;
     }
 
