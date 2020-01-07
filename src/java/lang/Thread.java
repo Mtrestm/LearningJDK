@@ -146,7 +146,7 @@ class Thread implements Runnable {
         registerNatives();
     }
 
-    private volatile String namesname; //名称
+    private volatile String name; //名称
     private int            priority; //优先级
     private Thread         threadQ;
     private long           eetop;
@@ -382,15 +382,17 @@ class Thread implements Runnable {
     /**
      * Initializes a Thread.
      *
-     * @param g the Thread group
-     * @param target the object whose run() method gets called
-     * @param name the name of the new Thread
-     * @param stackSize the desired stack size for the new thread, or
+     * @param g the Thread group 线程组
+     * @param target the object whose run() method gets called 最终执行任务的 `run()` 方法的对象
+     * @param name the name of the new Thread  新线程的名称
+     * @param stackSize the desired stack size for the new thread, or 新线程所需的堆栈大小，或者 0 表示要忽略此参数
      *        zero to indicate that this parameter is to be ignored.
      * @param acc the AccessControlContext to inherit, or
-     *            AccessController.getContext() if null
+     *            AccessController.getContext() if null  要继承的AccessControlContext，如果为null，则为 AccessController.getContext()
      * @param inheritThreadLocals if {@code true}, inherit initial values for
      *            inheritable thread-locals from the constructing thread
+     *         inheritThreadLocals 如果为 true，从构造线程继承可继承的线程局部的初始值
+     *
      */
     private void init(ThreadGroup g, Runnable target, String name,
                       long stackSize, AccessControlContext acc,
@@ -752,21 +754,28 @@ class Thread implements Runnable {
          *
          * A zero status value corresponds to state "NEW".
          */
+        //如果不是刚创建的线程，抛出异常
         if (threadStatus != 0)
             throw new IllegalThreadStateException();
 
         /* Notify the group that this thread is about to be started
          * so that it can be added to the group's list of threads
          * and the group's unstarted count can be decremented. */
+        //通知线程组，当前线程即将启动，线程组当前启动线程数+1，未启动线程数-1
         group.add(this);
 
+        //启动标识
         boolean started = false;
         try {
+            //直接调用本地方法启动线程
             start0();
+            //设置启动标识为启动成功
             started = true;
         } finally {
             try {
+                //如果启动呢失败
                 if (!started) {
+                    //线程组内部移除当前启动的线程数量-1，同时启动失败的线程数量+1
                     group.threadStartFailed(this);
                 }
             } catch (Throwable ignore) {
